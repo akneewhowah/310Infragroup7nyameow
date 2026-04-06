@@ -116,6 +116,18 @@ all:
         jumpgrey:
         jumpred:
 
+    inscope:
+      children:
+        mcp:
+        nginx:
+        mysql:
+        mail:
+        grafana:
+        rsyslog:
+        smb:
+        iis:
+        dns:
+
     debian:
       children:
         proxy:
