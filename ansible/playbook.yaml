@@ -139,41 +139,41 @@
     - pyc2_client
     - full
 
-- name: Deploy Birdsnest
-  hosts: all
-  roles:
-    - birdsnest
-  tags:
-    - birdsnest
-    - andrew
-    - full
-
-- name: Deploy Magpie
-  hosts: inscope
-  roles:
-    - birdsnest-magpie
-  tags:
-    - magpie
-    - andrew
-    - full
-
-- name: Deploy Owlet
-  hosts: inscope
-  roles:
-    - birdsnest-owlet
-  tags:
-    - owlet
-    - andrew
-    - full
-
-- name: Deploy Kingfisher
-  hosts: inscope
-  roles:
-    - birdsnest-kingfisher
-  tags:
-    - kingfisher
-    - andrew
-    - full
+#- name: Deploy Birdsnest
+#  hosts: all
+#  roles:
+#    - birdsnest
+#  tags:
+#    - birdsnest
+#    - andrew
+#    - full
+#
+#- name: Deploy Magpie
+#  hosts: inscope
+#  roles:
+#    - birdsnest-magpie
+#  tags:
+#    - magpie
+#    - andrew
+#    - full
+#
+#- name: Deploy Owlet
+#  hosts: inscope
+#  roles:
+#    - birdsnest-owlet
+#  tags:
+#    - owlet
+#    - andrew
+#    - full
+#
+#- name: Deploy Kingfisher
+#  hosts: inscope
+#  roles:
+#    - birdsnest-kingfisher
+#  tags:
+#    - kingfisher
+#    - andrew
+#    - full
 
 #########################
 # Finishers
