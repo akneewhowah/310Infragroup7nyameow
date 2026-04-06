@@ -1,0 +1,73 @@
+---
+- name: Install dependencies
+  apt:
+    name: [wget, ca-certificates, tar]
+    state: present
+    update_cache: yes
+
+- name: Ensure TUN kernel module is loaded
+  community.general.modprobe:
+    name: tun
+    state: present
+
+- name: Ensure TUN module persists on reboot
+  ansible.builtin.lineinfile:
+    path: /etc/modules
+    line: "tun"
+    state: present
+    
+- name: Check if GOST is installed
+  stat:
+    path: "{{ gost_install_dir }}/gost"
+  register: gost_binary
+
+- name: Download and install GOST
+  shell: |
+    wget https://github.com/ginuerzh/gost/releases/download/v{{ gost_version }}/gost-linux-amd64-{{ gost_version }}.gz
+    gunzip gost-linux-amd64-{{ gost_version }}.gz
+    mv gost-linux-amd64-{{ gost_version }} {{ gost_install_dir }}/gost
+    chmod +x {{ gost_install_dir }}/gost
+  when: not gost_binary.stat.exists
+
+- name: Deploy Systemd service unit
+  template:
+    src: gost_boundary.service.j2
+    dest: /etc/systemd/system/gost.service
+
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Ensure GOST is started and enabled
+  systemd:
+    name: gost
+    state: restarted
+    enabled: yes
+
+- name: Install iptables
+  package:
+    name: iptables
+    state: present
+    
+- name: Install iptables-persistent
+  ansible.builtin.apt:
+    name: iptables-persistent
+    state: present
+
+- name: Deploy TCP MSS Clamping to prevent fragmentation
+  ansible.builtin.shell: |
+    iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1300 || \
+    iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1300
+  register: mss_result
+  changed_when: mss_result.rc == 0
+
+- name: Force save iptables rules immediately
+  ansible.builtin.shell: netfilter-persistent save
+  when: mss_result.changed
+
+- name: Ensure IP forwarding is enabled
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    reload: yes

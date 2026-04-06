@@ -1,0 +1,27 @@
+- name: Create domain admin redteam users
+  microsoft.ad.user:
+    name: "{{ item }}"
+    password: "{{ redteam_user_password }}"
+    state: present
+    enabled: yes
+    password_never_expires: yes
+    domain_username: "{{ ansible_user }}"
+    domain_password: "{{ ansible_password }}"
+    domain_server: "{{ domain }}"
+  loop: "{{ redteam_domain_all }}"
+
+- name: Assign domain admin group memberships
+  microsoft.ad.group:
+    #identity: "CN={{ item }},CN=Builtin,DC=mlp,DC=local"
+    name: "{{ item }}"
+    members: 
+      add: "{{ redteam_domain_all }}"
+    state: present
+    domain_username: "{{ ansible_user }}"
+    domain_password: "{{ ansible_password }}"
+    domain_server: "{{ domain }}"
+  loop:
+    - Domain Admins
+    - Enterprise Admins
+    - Remote Management Users
+    - Remote Desktop Users
