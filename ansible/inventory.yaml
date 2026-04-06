@@ -1,5 +1,60 @@
 all:
   children:
+
+    mcp:
+      hosts:
+        blue1-cross-check:
+          ansible_host: "10.100.2.3"
+        blue2-cross-check:
+          ansible_host: "10.100.3.3"
+    nginx:
+      hosts:
+        blue1-hat-trick:
+          ansible_host: "10.100.2.4"
+        blue2-hat-trick:
+          ansible_host: "10.100.3.4"
+    mysql:
+      hosts:
+        blue1-triple-deke:
+          ansible_host: "10.100.2.5"
+        blue2-triple-deke:
+          ansible_host: "10.100.3.5"
+    mail:
+      hosts:
+        blue1-toe-drag:
+          ansible_host: "10.100.2.6"
+        blue2-toe-drag:
+          ansible_host: "10.100.3.6"
+    grafana:
+      hosts:
+        blue1-clapper:
+          ansible_host: "10.100.2.7"
+        blue2-clapper:
+          ansible_host: "10.100.3.7"
+    rsyslog:
+      hosts:
+        blue1-backcheck:
+          ansible_host: "10.100.2.8"
+        blue2-backcheck:
+          ansible_host: "10.100.3.8"
+    smb:
+      hosts:
+        blue1-dump-n-chase:
+          ansible_host: "10.100.2.9"
+        blue2-dump-n-chase:
+          ansible_host: "10.100.3.9"
+    iis:
+      hosts:
+        blue1-snapshot:
+          ansible_host: "10.100.2.10"
+        blue2-snapshot:
+          ansible_host: "10.100.3.10"
+    dns:
+      hosts:
+        blue1-bardown:
+          ansible_host: "10.100.2.11"
+        blue2-bardown:
+          ansible_host: "10.100.3.11"
   
     jumpred:
       hosts:
@@ -61,12 +116,21 @@ all:
     ubuntu:
       children:
         jumpboxes:
+        mcp:
+        nginx:
+        mysql:
+        mail:
+        grafana:
+        rsyslog:
     linux:
       children:
         debian:
         ubuntu:
     windows:
       children:
+        smb:
+        iis:
+        dns:
     gui:
       children:
         windows:
