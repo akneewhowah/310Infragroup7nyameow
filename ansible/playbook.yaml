@@ -30,31 +30,6 @@
 # Linux Infra
 #########################
 
-
-- name: Deploy Linux Standards
-  hosts: linux
-  roles:
-    - linux_standards
-  tags:
-    - linux 
-    - inscope 
-    - standards
-    - stds
-    - generic
-    - full
-
-#- name: Deploy Linux Users
-#  hosts: linux
-#  roles:
-#    - linux_users
-#  tags:
-#    - linux 
-#    - inscope 
-#    - users
-#    - users_linux
-#    - generic
-#    - full
-
 - name: Deploy Rustdesk Linux
   hosts: linux:&gui
   roles:
@@ -105,6 +80,44 @@
 #########################
 # Inscope
 #########################
+
+- name: Deploy Linux Users
+  hosts: linux:&inscope
+  roles:
+    - linux_users
+  tags:
+    - linux 
+    - inscope 
+    - users
+    - users_linux
+    - generic
+    - full
+
+- name: Deploy Windows Local Users
+  hosts: windows:&inscope:!ad
+  roles:
+    - windows_users_local
+  tags:
+    - windows 
+    - inscope 
+    - users
+    - users_windows
+    - users_windows_local
+    - generic
+    - full
+
+- name: Deploy Windows AD Users
+  hosts: ad:&inscope
+  roles:
+    - windows_users_ad
+  tags:
+    - windows 
+    - inscope 
+    - users
+    - users_windows
+    - users_windows_ad
+    - generic
+    - full
 
 - name: Andrew - Deploy pyc2 Server
   hosts: all

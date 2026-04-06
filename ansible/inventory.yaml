@@ -55,6 +55,12 @@ all:
           ansible_host: "10.100.2.11"
         blue2-bardown:
           ansible_host: "10.100.3.11"
+    ad:
+      children:
+        dns:
+    dc:
+      children:
+        dns:
   
     jumpred:
       hosts:
