@@ -21,13 +21,10 @@
 
       - name: Create a scheduled task
         ansible.windows.win_shell: |
-          schtasks.exe /Create /SC ONCE /TN "RunImplant" /TR "{{ service_directory }}\\{{ service_exe }}" /ST 00:00 /RL HIGHEST /F
+          schtasks.exe /Create /SC ONCE /TN "RunImplant" /TR "python \"{{ service_directory }}\\{{ service_exe }}\"" /ST 00:00 /RL HIGHEST /F
 
       - name: Run the task
         ansible.windows.win_shell: schtasks /Run /TN "RunImplant"
-      
-      - name: run python script
-        ansible.windows.win_shell: python "{{ service_directory }}\\{{ service_exe }}"
-        
+
       - name: Delete the task
         ansible.windows.win_shell: schtasks /Delete /TN "RunImplant" /F

