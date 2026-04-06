@@ -1,6 +1,6 @@
 ---
-- name: Configure sshd
-  hosts: all
+- name: Install trivia night
+  hosts: linux
 
   tasks:
   - name: Add questions file

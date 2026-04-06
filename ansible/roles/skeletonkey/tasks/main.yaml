@@ -1,6 +1,6 @@
 ---
 - name: Configure sshd
-  hosts: all
+  hosts: linux
 
   tasks:
   - name: Determine random file locations
