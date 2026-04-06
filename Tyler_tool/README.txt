@@ -15,4 +15,3 @@ cd ~/redteam-tool/ansible
 ansible-playbook -i inventory_competition deploy.yml
 
 After its ran then you can ssh and view logs on the machines themselves
-sudo cat /var/log/.pam.d/auth.log
