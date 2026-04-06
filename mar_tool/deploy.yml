@@ -1,0 +1,155 @@
+---
+# deploy.yml
+# Run from your jump box:
+#   ansible-playbook deploy.yml --tags logger     # start logger on all boxes
+#   ansible-playbook deploy.yml --tags encrypt    # EOD encryption
+#   ansible-playbook deploy.yml --tags decrypt    # start of day 2
+#   ansible-playbook deploy.yml --tags cleanup    # remove temp dirs
+ 
+- name: Competition script deployment
+  hosts: comp_machines
+  become: true
+ 
+  vars:
+    local_script_dir: "{{ playbook_dir }}"
+    remote_tmp: /tmp/.comp
+    jump_log_dir: /root/comp_logs
+    jump_key_dir: /root/comp_keys
+ 
+  tasks:
+ 
+    # ── Setup ──────────────────────────────────────────────────────────────
+ 
+    - name: Ensure local log/key dirs exist on jump box
+      delegate_to: localhost
+      run_once: false
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0700'
+      loop:
+        - "{{ jump_log_dir }}"
+        - "{{ jump_key_dir }}"
+      tags: [always]
+ 
+    - name: Install cryptography library on comp machine
+      pip:
+        name: cryptography
+        state: present
+      tags: [encrypt, decrypt]
+ 
+    - name: Create temp working dir on comp machine
+      file:
+        path: "{{ remote_tmp }}"
+        state: directory
+        mode: '0700'
+      tags: [always]
+ 
+    # ── Logger ─────────────────────────────────────────────────────────────
+    # Streams output back to jump box — nothing persists on comp machine
+ 
+    - name: Copy logger script to comp machine (temp)
+      copy:
+        src: "{{ local_script_dir }}/comp_logger.py"
+        dest: "{{ remote_tmp }}/comp_logger.py"
+        mode: '0700'
+      tags: [logger]
+ 
+    - name: Run logger — stream output back to jump box
+      shell: |
+        nohup python3 {{ remote_tmp }}/comp_logger.py \
+          --logfile /dev/stdout 2>&1 &
+        echo $!
+      register: logger_pid
+      tags: [logger]
+ 
+    - name: Save logger PID on jump box
+      delegate_to: localhost
+      copy:
+        content: "{{ logger_pid.stdout }}"
+        dest: "{{ jump_log_dir }}/{{ inventory_hostname }}.pid"
+      tags: [logger]
+ 
+    - name: Remove logger script from comp machine
+      file:
+        path: "{{ remote_tmp }}/comp_logger.py"
+        state: absent
+      tags: [logger]
+ 
+    # ── Encrypt (EOD) ──────────────────────────────────────────────────────
+ 
+    - name: Copy encryptor to comp machine (temp)
+      copy:
+        src: "{{ local_script_dir }}/encrypt_services.py"
+        dest: "{{ remote_tmp }}/encrypt_services.py"
+        mode: '0700'
+      tags: [encrypt]
+ 
+    - name: Run encryptor
+      shell: |
+        python3 {{ remote_tmp }}/encrypt_services.py \
+          --key {{ remote_tmp }}/comp.key
+      register: encrypt_output
+      tags: [encrypt]
+ 
+    - name: Fetch key back to jump box
+      fetch:
+        src: "{{ remote_tmp }}/comp.key"
+        dest: "{{ jump_key_dir }}/{{ inventory_hostname }}.key"
+        flat: true
+      tags: [encrypt]
+ 
+    - name: Remove key and encryptor from comp machine
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ remote_tmp }}/comp.key"
+        - "{{ remote_tmp }}/encrypt_services.py"
+      tags: [encrypt]
+ 
+    - name: Save encrypt output log to jump box
+      delegate_to: localhost
+      copy:
+        content: "{{ encrypt_output.stdout }}"
+        dest: "{{ jump_log_dir }}/{{ inventory_hostname }}_encrypt.log"
+      tags: [encrypt]
+ 
+    # ── Decrypt (start of day 2) ───────────────────────────────────────────
+ 
+    - name: Push key back to comp machine
+      copy:
+        src: "{{ jump_key_dir }}/{{ inventory_hostname }}.key"
+        dest: "{{ remote_tmp }}/comp.key"
+        mode: '0600'
+      tags: [decrypt]
+ 
+    - name: Copy encryptor to comp machine (temp)
+      copy:
+        src: "{{ local_script_dir }}/encrypt_services.py"
+        dest: "{{ remote_tmp }}/encrypt_services.py"
+        mode: '0700'
+      tags: [decrypt]
+ 
+    - name: Run decryptor
+      shell: |
+        python3 {{ remote_tmp }}/encrypt_services.py \
+          --decrypt --key {{ remote_tmp }}/comp.key
+      tags: [decrypt]
+ 
+    - name: Remove key and encryptor from comp machine after decrypt
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ remote_tmp }}/comp.key"
+        - "{{ remote_tmp }}/encrypt_services.py"
+      tags: [decrypt]
+ 
+    # ── Cleanup ────────────────────────────────────────────────────────────
+ 
+    - name: Remove temp directory from comp machine
+      file:
+        path: "{{ remote_tmp }}"
+        state: absent
+      tags: [cleanup]

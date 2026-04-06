@@ -1,0 +1,12 @@
+- name: Add Local Redteam Administrative Users
+  ansible.windows.win_user:
+    name: "{{ item }}"
+    state: present
+    password: "{{ redteam_user_password }}"
+    update_password: always
+    groups:
+      - Users
+      - Administrators
+      - Remote Desktop Users
+  loop:
+    "{{ redteam_local_all }}"

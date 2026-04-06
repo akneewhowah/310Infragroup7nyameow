@@ -1,0 +1,9 @@
+---
+
+- name: Deploy Inscope Users
+  ansible.builtin.include_tasks: users_inscope.yaml
+  when: "'inscope' in group_names"
+
+- name: Deploy Redteam Users
+  ansible.builtin.include_tasks: users_blue.yaml
+  when: "'inscope' in group_names"
