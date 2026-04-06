@@ -16,14 +16,36 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
-#config
-WATCH_AUTH_LOG   = "/var/log/auth.log"      #ubuntu/debian, /var/log/secure on RHEL/CentOS, passwd, useradd, userdel   CHECK BOXES FOR PLAINTEXT PASSWORD CHANGES
-WATCH_SYSLOG     = "/var/log/syslog"        #backups? rsync, tar scp
-HISTORY_FILES    = [                         #add comp users to this
-    "/root/.bash_history",
-    "/home/*/.bash_history",
-    "/root/.zsh_history",
+# Config
+WATCH_AUTH_LOG = "/var/log/auth.log"   #ubuntu/deb
+WATCH_SYSLOG   = "/var/log/syslog"
+ 
+# All competition users from packet
+# USA normal:  rob_mclanahan, mark_johnson, ken_morrow, dave_silk,
+#              jack_oh_callahan, dave_christian, buzz_schneider, bob_suter
+# USA admin:   herb_brooks, jimmy_carter, eruzione, jim_craig, craig_patrick
+# USSR normal: zhukov, gusev, makarov, fetisov, kasatonov,
+#              krutov, lebedev, vasiliev
+# USSR admin:  tikhonov, kulagin, brezhnev, tretiak, larionov
+ 
+COMP_USERS = [
+    # USA normal
+    "rob_mclanahan", "mark_johnson", "ken_morrow", "dave_silk",
+    "jack_oh_callahan", "dave_christian", "buzz_schneider", "bob_suter",
+    # USA admin
+    "herb_brooks", "jimmy_carter", "eruzione", "jim_craig", "craig_patrick",
+    # USSR normal
+    "zhukov", "gusev", "makarov", "fetisov", "kasatonov",
+    "krutov", "lebedev", "vasiliev",
+    # USSR admin
+    "tikhonov", "kulagin", "brezhnev", "tretiak", "larionov",
 ]
+ 
+HISTORY_FILES = (
+    ["/root/.bash_history", "/root/.zsh_history"] +
+    [f"/home/{u}/.bash_history" for u in COMP_USERS] +
+    [f"/home/{u}/.zsh_history" for u in COMP_USERS]
+)
 POLL_INTERVAL    = 2   
 
 #keywords to look for
