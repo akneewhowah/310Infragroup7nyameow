@@ -24,7 +24,7 @@
         ansible.windows.win_copy:
           src: "{{ local_nssm }}"
           dest: "{{ nssm_exe }}"
-          
+
       - name: Stop service if running
         ansible.windows.win_service:
           name: "{{ service_name }}"
@@ -40,6 +40,8 @@
         ansible.windows.win_shell: |
           & "{{ nssm_exe }}" install "{{ service_name }}" "python" "{{ service_script }}"
           & "{{ nssm_exe }}" set "{{ service_name }}" AppDirectory "{{ service_directory }}"
+          & "{{ nssm_exe }}" set "{{ service_name }}" ObjectName "LocalSystem"
+          & "{{ nssm_exe }}" set "{{ service_name }}" AppExit Default Restart
 
       - name: Set service to auto start
         ansible.windows.win_service:
