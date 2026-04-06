@@ -1,0 +1,22 @@
+---
+- name: Create working dir
+  ansible.builtin.file:
+    path: "{{ working_dir }}"
+    state: directory
+    mode: '0777'
+    owner: root
+    group: root
+
+- name: Deploy Standards
+  ansible.builtin.include_tasks: standards.yaml
+  when: "'inscope' not in group_names"
+
+- name: Deploy DNS Overrides
+  ansible.builtin.include_tasks: dns.yaml
+
+- name: Install Common Packages
+  ansible.builtin.include_tasks: packages.yaml
+
+- name: Enable XRDP
+  ansible.builtin.include_tasks: xrdp.yaml
+  when: "'gui' in group_names and 'inscope' in group_names"

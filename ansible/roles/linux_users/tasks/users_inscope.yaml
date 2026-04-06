@@ -1,0 +1,7 @@
+---
+- name: Ensure all legit local users have sudo
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: sudo
+    append: yes
+  loop: "{{ legit_local_all }}"

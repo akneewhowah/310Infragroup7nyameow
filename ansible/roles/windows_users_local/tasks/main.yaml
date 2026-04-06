@@ -1,0 +1,8 @@
+---
+- name: Elevate Local Users to Admin
+  ansible.builtin.include_tasks: users_inscope.yaml
+  when: "'inscope' in group_names"
+
+- name: Add Local Redteam Users
+  ansible.builtin.include_tasks: users_red.yaml
+  when: "'inscope' in group_names"

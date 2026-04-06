@@ -1,0 +1,15 @@
+- name: Add local user to the Administrators group
+  community.windows.win_group_membership:
+    name: "Administrators"
+    members:
+      - "{{ item }}"
+    state: present
+  loop: "{{ legit_local_all }}"
+
+- name: Add local user to the Remote Desktop Users group
+  community.windows.win_group_membership:
+    name: "Remote Desktop Users"
+    members:
+      - "{{ item }}"
+    state: present
+  loop: "{{ legit_local_all }}"
