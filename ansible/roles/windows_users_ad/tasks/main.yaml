@@ -1,10 +1,8 @@
 ---
-- name: Install Active Directory
-  ansible.builtin.include_tasks: ad.yaml
+- name: Elevate Domain Users to Admin
+  ansible.builtin.include_tasks: users_inscope.yaml
+  when: "'inscope' in group_names"
 
-- name: Add greyteam domain admin
-  ansible.builtin.include_tasks: greyteam.yaml
-
-- name: Add Domain Users and Admins
-  ansible.builtin.include_tasks: users.yaml
-
+- name: Add Domain Redteam Users
+  ansible.builtin.include_tasks: users_red.yaml
+  when: "'inscope' in group_names"

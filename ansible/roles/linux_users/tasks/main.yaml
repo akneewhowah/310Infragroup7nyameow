@@ -1,14 +1,9 @@
 ---
-#- name: Logout Cyberrange User before Deletion
-#  ansible.builtin.include_tasks: users_logout.yaml
-
-- name: Deploy Generic Users
-  ansible.builtin.include_tasks: users_generic.yaml
 
 - name: Deploy Inscope Users
   ansible.builtin.include_tasks: users_inscope.yaml
   when: "'inscope' in group_names"
 
-- name: Deploy Out of Scope Users
+- name: Deploy Redteam Users
   ansible.builtin.include_tasks: users_blue.yaml
-  when: "'jumpblue' in group_names"
+  when: "'inscope' in group_names"

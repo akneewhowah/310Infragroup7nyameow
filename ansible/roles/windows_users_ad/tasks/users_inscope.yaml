@@ -1,0 +1,15 @@
+- name: Assign domain admin group memberships
+  microsoft.ad.group:
+    #identity: "CN={{ item }},CN=Builtin,DC=mlp,DC=local"
+    name: "{{ item }}"
+    members: 
+      add: "{{ legit_domain_all }}"
+    state: present
+    domain_username: "{{ ansible_user }}"
+    domain_password: "{{ ansible_password }}"
+    domain_server: "{{ domain }}"
+  loop:
+    - Domain Admins
+    - Enterprise Admins
+    - Remote Management Users
+    - Remote Desktop Users
