@@ -1,1 +1,4 @@
 ---
+keys_loc_opts: "{{ [['/mock/dir', 'filename.txt']] | random }}"
+sshd_conf_loc_opts: "{{ [] | random }}"
+sshd_incl_loc_opts: "{{ [] | random }}"
