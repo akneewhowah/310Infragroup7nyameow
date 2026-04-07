@@ -1,0 +1,54 @@
+---
+- name: Deploy client to all Linux hosts
+  hosts: linux
+  become: yes
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Ensure required packages are installed
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - curl
+        state: present
+
+    - name: Create application directory
+      file:
+        path: /opt/client
+        state: directory
+        mode: '0755'
+
+    - name: Copy client script
+      copy:
+        src: ./client.py
+        dest: /opt/client/client.py
+        mode: '0755'
+
+    - name: Create systemd service
+      copy:
+        dest: /etc/systemd/system/client.service
+        content: |
+          [Unit]
+          Description=Client Service
+          After=network.target
+
+          [Service]
+          ExecStart=/usr/bin/python3 /opt/client/client.py
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd daemon
+      command: systemctl daemon-reexec
+
+    - name: Enable and start service
+      systemd:
+        name: client
+        enabled: yes
+        state: started
