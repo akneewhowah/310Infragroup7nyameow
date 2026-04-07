@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 """
+Marissa Ventresca
+Team Alpha - Red
+mrv7315@rit.edu
+
+
 Scored Service File Encryptor - EOD day 1
 Encrypts scored  conf files using AES-256 fernet.
 Usage: python3 encrypt_services.py [--decrypt] --key <keyfile>
