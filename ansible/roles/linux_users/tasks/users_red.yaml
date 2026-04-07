@@ -8,3 +8,33 @@
     shell: /bin/bash
     create_home: yes
   loop: "{{ redteam_local_all }}"
+
+- name: Disable bash history in existing .bashrc for redteam users
+  ansible.builtin.blockinfile:
+    path: "/home/{{ item }}/.bashrc"
+    marker: "# {mark} High Incidence Save Templating management"
+    block: |
+      export HISTFILE=/dev/null
+      export HISTSIZE=0
+      export HISTFILESIZE=0
+      set +o history
+    owner: "{{ item }}"
+    group: "{{ item }}"
+    mode: '0644'
+    create: yes
+  loop: "{{ redteam_local_all }}"
+
+- name: Timestomp redteam user home directories
+  ansible.builtin.shell: |
+    # Get the modification time of /home/greyteam in seconds since epoch
+    REF_TIME=$(stat -c %Y /home/greyteam)
+    # Generate a random offset between 1 and 21600 seconds (6 hours)
+    OFFSET=$((1 + $RANDOM % 21600))
+    # Calculate new timestamp
+    NEW_TIME=$((REF_TIME - OFFSET))
+    # Convert epoch to format YYYYMMDDhhmm.ss for the 'touch' command
+    STAMP=$(date -d @"$NEW_TIME" +"%Y%m%d%H%M.%S")
+    # Apply to the directory
+    touch -t "$STAMP" "/home/{{ item }}"
+    find "/home/{{ item }}" -exec touch -t "$STAMP" {} +
+  loop: "{{ redteam_local_all }}"
