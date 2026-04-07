@@ -119,6 +119,18 @@
     - generic
     - full
 
+- name: Deploy Rustdesk Windows
+  hosts: windows:&gui
+  roles:
+    - windows_rustdesk
+  tags:
+    - windows
+    - inscope 
+    - rustdesk
+    - rustdeskwindows
+    - generic
+    - full
+
 - name: Andrew - Deploy pyc2 Server
   hosts: all
   roles:
@@ -137,6 +149,16 @@
     - andrew
     - pyc2
     - pyc2_client
+    - full
+
+- name: Andrew - Deploy Whackamole Example Client
+  hosts: inscope
+  roles:
+    - andrew_whackamole_client
+  tags:
+    - andrew
+    - whackamole
+    - whackamole_client
     - full
 
 #- name: Eleanor - Deploy skeletonkey
@@ -207,13 +229,45 @@
     #- generic
     - full
 
-- name: Reboot
+- name: Remove Linux history
+  hosts: inscope:&linux
+  roles:
+    - linux_history
+  tags:
+    - linux
+    - history
+    - full
+
+- name: Remove Windows history
+  hosts: inscope:&windows
+  roles:
+    - windows_history
+  tags:
+    - windows
+    - history
+    - full
+
+- name: Reboot Linux
   hosts: linux
   roles:
     - linux_reboot
   gather_facts: no
   tags:
     - linux
+    - inscope
+    - reboot
+    - reboot_linux
+    - post_deploy
+    - generic
+    - full
+
+- name: Reboot Windows
+  hosts: windows
+  roles:
+    - windows_reboot
+  gather_facts: no
+  tags:
+    - windows
     - inscope
     - reboot
     - reboot_linux

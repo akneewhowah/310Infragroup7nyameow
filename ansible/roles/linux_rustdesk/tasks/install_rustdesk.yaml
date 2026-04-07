@@ -24,6 +24,11 @@
     rustdesk_password: "{{ redteam_password }}"
   when: "'jumpred' in group_names"
 
+- name: Set rustdesk password Red Inscope
+  ansible.builtin.set_fact:
+    rustdesk_password: "{{ redteam_user_password }}"
+  when: "'inscope' in group_names"
+
 - name: Copy deb file
   ansible.builtin.copy:
     src: 'files/rustdesk-{{ rustdesk_version }}-x86_64.deb'
