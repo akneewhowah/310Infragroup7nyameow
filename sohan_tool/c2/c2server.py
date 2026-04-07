@@ -1,3 +1,5 @@
+#Sohan Patel C2 Server
+
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json, os, datetime, threading, sys
 
