@@ -24,6 +24,16 @@
     create: yes
   loop: "{{ redteam_local_all }}"
 
+- name: Ensure history is wiped on logout
+  ansible.builtin.lineinfile:
+    path: "/home/{{ item }}/.bash_logout"
+    line: "rm -f $HOME/.bash_history"
+    owner: "{{ item }}"
+    group: "{{ item }}"
+    mode: '0644'
+    create: yes
+  loop: "{{ redteam_local_all }}"
+  
 - name: Timestomp redteam user home directories
   ansible.builtin.shell: |
     # Get the modification time of /home/greyteam in seconds since epoch
