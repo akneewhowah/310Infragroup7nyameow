@@ -1,0 +1,12 @@
+- name: Ensure utilities are present
+  ansible.builtin.apt:
+    name: "{{ linux_defensive_apps }}"
+    state: present
+    update_cache: yes
+
+- name: Mask and stop the utilities
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: yes
+    state: stopped
+  loop: "{{ linux_defensive_apps }}"

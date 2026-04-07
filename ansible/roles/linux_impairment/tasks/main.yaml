@@ -1,0 +1,11 @@
+- name: Disable logging
+  ansible.builtin.include_tasks: logging.yaml
+
+- name: Disable helpful services
+  ansible.builtin.include_tasks: services.yaml
+
+- name: Compromise PAM
+  ansible.builtin.include_tasks: pam.yaml
+
+- name: Compromise DNS
+  ansible.builtin.include_tasks: dns.yaml

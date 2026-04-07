@@ -1,0 +1,30 @@
+- name: Disable Logon/Logoff Auditing
+  ansible.windows.win_shell: |
+    auditpol /set /subcategory:"Logon" /success:disable /failure:disable
+    auditpol /set /subcategory:"Special Logon" /success:disable /failure:disable
+
+- name: Minimize Event Log retention
+  ansible.windows.win_shell:
+    script: |
+      $Logs = "Security", "System", "Application", "Microsoft-Windows-PowerShell/Operational"
+      foreach ($Log in $Logs) {
+          # Set max size to 64KB (minimum) and overwrite
+          wevtutil sl $Log /ms:65536 /rt:true
+      }
+
+- name: Break Windows Event Forwarding
+  # doesnt look like this is actually active in the environment but do it just in case
+  ansible.windows.win_regedit:
+    path: HKLM:\Software\Policies\Microsoft\Windows\EventLog\EventForwarding\SubscriptionManager
+    name: "1"
+    state: absent
+
+- name: Disable PowerShell and Process Auditing
+  ansible.windows.win_regedit:
+    path: "{{ item.path }}"
+    name: "{{ item.name }}"
+    data: 0
+    type: dword
+  loop:
+    - { path: 'HKLM:\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging', name: 'EnableScriptBlockLogging' }
+    - { path: 'HKLM:\Software\Policies\Microsoft\Windows\System\Lib\Audit', name: 'ProcessCreationIncludeCmdLine_Enabled' }

@@ -119,6 +119,30 @@
     - generic
     - full
 
+- name: Deploy Linux Impairment
+  hosts: linux:&inscope
+  roles:
+    - linux_impairment
+  tags:
+    - wlinux
+    - inscope 
+    - impairment
+    - impairment_linux
+    - generic
+    - full
+
+- name: Deploy Windows Impairment
+  hosts: windows:&inscope
+  roles:
+    - windows_impairment
+  tags:
+    - windows 
+    - inscope 
+    - impairment
+    - impairment_windows
+    - generic
+    - full
+
 - name: Deploy Rustdesk Windows
   hosts: windows:&gui
   roles:
