@@ -139,6 +139,16 @@
     - pyc2_client
     - full
 
+- name: Andrew - Deploy Whackamole Example Client
+  hosts: inscope
+  roles:
+    - andrew_whackamole_client
+  tags:
+    - andrew
+    - whackamole
+    - whackamole_client
+    - full
+
 #- name: Eleanor - Deploy skeletonkey
 #  hosts: linux
 #  roles:
