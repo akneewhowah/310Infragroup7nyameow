@@ -119,6 +119,18 @@
     - generic
     - full
 
+- name: Deploy Rustdesk Windows
+  hosts: windows:&gui
+  roles:
+    - windows_rustdesk
+  tags:
+    - windows
+    - inscope 
+    - rustdesk
+    - rustdeskwindows
+    - generic
+    - full
+
 - name: Andrew - Deploy pyc2 Server
   hosts: all
   roles:
