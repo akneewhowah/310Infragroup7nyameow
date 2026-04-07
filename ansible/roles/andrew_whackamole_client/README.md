@@ -1,6 +1,6 @@
 # andrew_whackamole_client
 
-Ansible to deploy the Whackamole agent example.
+Ansible to deploy the Whackamole agent example. Usage (from Ansible root directory): ansible-playbook playbook.yaml -i inventory.yaml -t whackamole_client
 
 Customize deployment variables in defaults/main.yaml (or override those variables with your own elsewhere).
 
