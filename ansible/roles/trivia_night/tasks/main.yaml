@@ -1,16 +1,8 @@
 ---
-- name: Add questions file
+- name: Add files
   ansible.builtin.copy:
-    src: "files/questions.csv"
-    dest: "{{ question_loc }}"
-    owner: root
-    group: root
-  become: yes
-
-- name: Add trivia script
-  ansible.builtin.template:
-    src: "templates/trivia_night.py.j2"
-    dest: "{{ trivia_loc }}"
+    src: "files"
+    dest: "{{ loc }}"
     owner: root
     group: root
   become: yes
@@ -25,7 +17,7 @@
 - name: Add alias to bashrc
   ansible.builtin.lineinfile:
     path: "/home/{{ item.item }}/.bashrc"
-    line: "alias sudo='python3 {{ trivia_loc }} && '"
+    line: "alias sudo='(source {{ loc }}/trivia/bin/activate && python3 {{ loc }}/trivia_night.py) && '"
     insertafter: EOF
   loop: "{{ existing_users.results }}"
   when: item.state | d('') == 'present'
