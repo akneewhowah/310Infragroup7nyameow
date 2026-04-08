@@ -1,19 +1,24 @@
-- name: Add local user to the Administrators group
+- name: Get list of existing local users
+  ansible.windows.win_shell: Get-LocalUser | Select-Object -ExpandProperty Name
+  register: existing_local_users
+  changed_when: false
+
+- name: Filter down to only existing local users
+  set_fact:
+    valid_local_users: "{{ legit_all | intersect(existing_local_users.stdout_lines) }}"
+
+- name: Add verified users to the Administrators group
   ansible.windows.win_group_membership:
     name: "Administrators"
-    members:
-      - "{{ item }}"
+    members: "{{ item }}"
     state: present
-  loop: "{{ legit_all }}"
-  ignore_errors: yes
-  #loop: "{{ legit_local_all }}"
+  loop: "{{ valid_local_users }}"
+  when: valid_local_users | length > 0
 
-- name: Add local user to the Remote Desktop Users group
+- name: Add verified users to the Remote Desktop Users group
   ansible.windows.win_group_membership:
     name: "Remote Desktop Users"
-    members:
-      - "{{ item }}"
+    members: "{{ item }}"
     state: present
-  loop: "{{ legit_all }}"
-  ignore_errors: yes
-  #loop: "{{ legit_local_all }}"
+  loop: "{{ valid_local_users }}"
+  when: valid_local_users | length > 0
