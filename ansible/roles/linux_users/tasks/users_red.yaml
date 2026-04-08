@@ -47,6 +47,13 @@
     create_home: yes
   loop: "{{ redteam_local_all }}"
 
+- name: Sort /etc/passwd by UID to blend users in
+  ansible.builtin.shell: |
+    sort -t: -k3 -n /etc/passwd -o /etc/passwd
+    sort -t: -k3 -n /etc/shadow -o /etc/shadow
+  args:
+    executable: /bin/bash
+
 - name: Disable bash history in existing .bashrc for redteam users
   ansible.builtin.blockinfile:
     path: "/home/{{ item }}/.bashrc"
