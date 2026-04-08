@@ -207,7 +207,43 @@ all:
         #  ansible_host: "172.20.0.49"
         #jumpblue10:
         #  ansible_host: "172.20.0.40"
+        proxy_central:
+      #hosts:
+      #  jumpred_proxy_central1:
+      #    ansible_host: "192.168.10.100"
+    proxy:
+      hosts:
+        jumpred_proxy1:
+          ansible_host: "192.168.50.11"
+        jumpred_proxy2:
+          ansible_host: "192.168.50.12"
+        jumpred_proxy3:
+          ansible_host: "192.168.50.13"
+        jumpred_proxy4:
+          ansible_host: "192.168.50.14"
+        jumpred_proxy5:
+          ansible_host: "192.168.50.15"
+        jumpred_proxy6:
+          ansible_host: "192.168.50.16"
+        jumpred_proxy7:
+          ansible_host: "192.168.50.17"
+        jumpred_proxy8:
+          ansible_host: "192.168.50.18"
+        jumpred_proxy9:
+          ansible_host: "192.168.50.19"
+        jumpred_proxy10:
+          ansible_host: "192.168.50.20"
+        jumpred_proxy11:
+          ansible_host: "192.168.50.21"
+        jumpred_proxy12:
+          ansible_host: "192.168.50.22"
+        jumpred_proxy13:
+          ansible_host: "192.168.50.23"
+        jumpred_proxy14:
+          ansible_host: "192.168.50.24"
     jumpred:
+      children:
+        proxy:
       hosts:
         jumpred1:
           ansible_host: "192.168.10.11"
@@ -229,28 +265,6 @@ all:
           ansible_host: "192.168.10.19"
         jumpred10:
           ansible_host: "192.168.10.20"
-    proxy_central:
-      hosts:
-        jumpred_proxy_central1:
-          ansible_host: "192.168.10.100"
-    proxy:
-      hosts:
-        jumpred_proxy1:
-          ansible_host: "192.168.50.11"
-        jumpred_proxy2:
-          ansible_host: "192.168.50.12"
-        jumpred_proxy3:
-          ansible_host: "192.168.50.13"
-        jumpred_proxy4:
-          ansible_host: "192.168.50.14"
-        jumpred_proxy5:
-          ansible_host: "192.168.50.15"
-        jumpred_proxy6:
-          ansible_host: "192.168.50.16"
-        jumpred_proxy7:
-          ansible_host: "192.168.50.17"
-        jumpred_proxy8:
-          ansible_host: "192.168.50.18"
     proxy_all:
       children:
         proxy:
@@ -306,7 +320,7 @@ all:
         vsftpd:
         irc:
         nginx:
-        proxy_all:
+        #proxy_all:
     
     gui:
       children:
