@@ -28,9 +28,6 @@ services:
     command: ["sh", "-c", "gunicorn --bind 0.0.0.0:80 --workers {{ cppc2_gunicorn_workers }} --worker-tmp-dir /dev/shm server:main"]
     deploy:
       replicas: {{ cppc2_webserver_replicas }}
-    depends_on:
-      worker:
-        condition: service_healthy
     networks:
       - cppc2_net
     expose:
