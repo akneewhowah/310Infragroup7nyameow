@@ -10,9 +10,13 @@
       - build-essential
       - libapr1-dev
       - libaprutil1-dev
+      - libpcre2-dev
       - libpcre3-dev
+      - libssl-dev
+      - pkg-config
       - zlib1g-dev
     state: present
+  ignore_errors: true
 
 - name: Create build directory
   ansible.builtin.file:
@@ -55,7 +59,7 @@
 
 - name: Deploy Systemd Service Unit
   ansible.builtin.copy:
-    dest: /etc/systemd/system/apache-custom.service
+    dest: /etc/systemd/system/apache2.service
     content: |
       [Unit]
       Description=The Apache HTTP Server

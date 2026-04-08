@@ -64,16 +64,20 @@
 
 - name: Restore original timestamps
   ansible.builtin.file:
-    path: "{{ item.item }}"
-    modification_time: "{{ item.stat.mtime | string | split('.') | first }}"
-    access_time: "{{ item.stat.atime | string | split('.') | first }}"
+    path: "{{ item.stat.path }}"
     state: file
+    # Convert Epoch float to the required YYYYMMDDHHMM.SS format
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(item.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(item.stat.atime) }}"
   loop: "{{ file_stats.results }}"
+  when: item.stat.exists
 
-- name: Restore original timestamps to rsyslog configs
+- name: Restore original timestamps
   ansible.builtin.file:
-    path: "{{ item.item }}"
-    modification_time: "{{ item.stat.mtime | string | split('.') | first }}"
-    access_time: "{{ item.stat.atime | string | split('.') | first }}"
+    path: "{{ item.stat.path }}"
     state: file
+    # Convert Epoch float to the required YYYYMMDDHHMM.SS format
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(item.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(item.stat.atime) }}"
   loop: "{{ rsyslog_stats.results }}"
+  when: item.stat.exists
