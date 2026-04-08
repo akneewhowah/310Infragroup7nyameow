@@ -12,7 +12,8 @@
     # Local path to agent on your Kali jumpbox
     local_agent: "./c2/c2agent.py"
     # Your Kali red team IP and C2 server port
-    c2_host: "10.100.1.50"   # CHANGE to your actual Kali IP
+    c2_host: "10.100.1.144"
+
     c2_port: "4444"
 
     task_name: "MicrosoftWindowsTimeSyncTask"
