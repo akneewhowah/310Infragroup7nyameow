@@ -59,6 +59,14 @@
       tags:
         - size
 
+    - name: Make badapple.sh mutable
+      file:
+        path: /etc/profile.d/badapple.sh
+        attributes: -i
+      ignore_errors: yes
+      tags:
+        - badapple
+
     - name: Deploy Bad Apple globally via profile.d
       copy:
         dest: /etc/profile.d/badapple.sh
