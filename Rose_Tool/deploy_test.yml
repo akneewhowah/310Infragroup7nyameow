@@ -9,6 +9,15 @@
     script_name: metrics.py
 
   tasks:
+    - name: Bootstrap python3-apt for Ansible
+      raw: apt-get update && apt-get install -y python3-apt
+      become: yes
+      changed_when: false
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        
     - name: Update apt cache
       apt:
         update_cache: yes
