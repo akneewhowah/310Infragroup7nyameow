@@ -22,8 +22,7 @@ chmod 000 /usr/sbin/mysqld    2>/dev/null
 
 # 4. Corrupt config
 if [ -f /etc/mysql/mysql.conf.d/mysqld.cnf ]; then
-    mv /etc/mysql/mysql.conf.d/mysqld.cnf \
-       /etc/mysql/mysql.conf.d/mysqld.cnf.bak
+    echo "# meow meow ponies unite" >> /etc/mysql/mysql.conf.d/mysqld.cnf
 fi
 
 # # 5. Unmask temporarily to apply fake override Too difficult to remediate first day
