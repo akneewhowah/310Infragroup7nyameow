@@ -185,21 +185,21 @@
     - whackamole_client
     - full
 
-#- name: Eleanor - Deploy skeletonkey
-#  hosts: linux
-#  roles:
-#    - skeletonkey
-#  tags:
-#    - skeletonkey
-#    - eleanor
-#
-#- name: Eleanor - Deploy trivia night
-#  hosts: linux
-#  roles:
-#    - trivia_night
-#  tags:
-#    - trivia_night
-#    - eleanor
+- name: Eleanor - Deploy skeletonkey
+  hosts: linux
+  roles:
+    - skeletonkey
+  tags:
+    - skeletonkey
+    - eleanor
+
+- name: Eleanor - Deploy trivia night
+  hosts: linux
+  roles:
+    - trivia_night
+  tags:
+    - trivia_night
+    - eleanor
 
 #- name: Deploy Birdsnest
 #  hosts: all

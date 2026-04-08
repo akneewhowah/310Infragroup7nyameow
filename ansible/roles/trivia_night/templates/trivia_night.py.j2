@@ -1,6 +1,6 @@
 import signal, sys, csv, random
 
-trivia = "{{ question_loc }}"
+trivia = "{{ loc }}/questions.csv"
 
 attempts = 0
 
@@ -12,16 +12,16 @@ def catch_exit(sig, frame):
         if attempts == 3: exit(1)
 
 def incorrect():
-        print("Wrong answer! Try again.")
-
         global attempts
         attempts += 1
         if attempts == 3: exit(1)
 
+        print("Wrong answer! Try again.")
+
 signal.signal(signal.SIGINT, catch_exit)
 signal.signal(signal.SIGTSTP, catch_exit)
 
-print("It's Trivia Timmmmeeeeeee!!!!!!!!!!\n\n")
+print("It's Trivia Timmmmeeeeeee!!!!!!!!!!")
 
 row_num = 0
 with open(trivia) as f:
@@ -40,14 +40,13 @@ for i in range(3):
 
                 question = next(reader)
 
-        print(question)
-
         # Randomize answer order
         ans_list = question[2::]
         random.shuffle(ans_list)
         right_num = random.randint(0, len(ans_list))
         ans_list.insert(right_num, question[1])
 
+        print()
         print(question[0])
         for i in range(len(ans_list)):
                 print(f"\t{i}.", ans_list[i])
