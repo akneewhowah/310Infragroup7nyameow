@@ -29,7 +29,7 @@
 
     - name: Copy client script
       copy:
-        src: ./client.py
+        src: ./c2_client.py
         dest: "{{ service_dir }}/{{ script_name }}"
         mode: '0755'
 
