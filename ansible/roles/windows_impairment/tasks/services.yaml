@@ -1,0 +1,27 @@
+- name: Disable Firewall Service
+  # "mask" it by wiping the security descriptor so it can't be started via GUI
+  ansible.windows.win_shell: |
+    sc.exe stop MpsSvc
+    sc.exe config MpsSvc start= disabled
+    sc.exe sdset MpsSvc D:(D;;DCLCWPDTSD;;;DA)(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWRPWPDTLOCRRC;;;BA)
+  # ^ allow localsystem, block admin/domain admin
+  # block localsystem and admin:
+  #sc.exe sdset MpsSvc D:(D;;DCLCWPDTSD;;;SY)(D;;DCLCWPDTSD;;;BA)
+
+- name: Set IFEO Redirection
+  ansible.windows.win_regedit:
+    path: "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\{{ item }}"
+    name: Debugger
+    data: "ntsd.exe -c q"
+    type: string
+  loop: "{{ block_list }}"
+
+- name: Set Explorer DisallowRun Policy
+  ansible.windows.win_regedit:
+    path: "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\DisallowRun"
+    name: "{{ ansible_loop.index }}"
+    data: "{{ item }}"
+    type: string
+  loop: "{{ block_list }}"
+  loop_control:
+    extended: true # needed for index

@@ -1,3 +1,4 @@
+#Rose Standard C2
 #!/usr/bin/env python3
 import os, sys, json, base64, time, random, urllib, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl
 from urllib.parse import urlencode

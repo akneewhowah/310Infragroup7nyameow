@@ -1,0 +1,11 @@
+- name: Compromise Logging
+  ansible.builtin.include_tasks: logging.yaml
+
+- name: Compromise Auth
+  ansible.builtin.include_tasks: auth.yaml
+
+- name: Compromise Defensive Services
+  ansible.builtin.include_tasks: services.yaml
+
+- name: Compromise DNS
+  ansible.builtin.include_tasks: dns.yaml

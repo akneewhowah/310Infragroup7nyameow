@@ -1,0 +1,19 @@
+- name: Enable WDigest Plaintext Password Caching
+  # this caches in lsass.exe memory so not easy to use, but does exist
+  ansible.windows.win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest
+    name: UseLogonCredential
+    data: 1
+    type: dword
+
+- name: Disable Password Complexity and Lockouts DC
+  ansible.windows.win_shell:
+    script: |
+      Set-ADDefaultDomainPasswordPolicy -Identity (Get-ADDomain).distinguishedName -ComplexityEnabled $false -LockoutThreshold 0
+  when: "'dc' in group_names"
+
+- name: Disable Password Complexity and Lockouts Local
+  ansible.windows.win_shell:
+    script: |
+      net accounts /uniquepw:0 /minpwlen:0 /maxpwage:unlimited
+  when: "'dc' not in group_names"
