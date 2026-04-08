@@ -18,7 +18,7 @@ services:
       - whackamole_net
 
   webserver:
-    image: ghcr.io/ccdc-rit/whackamole:latest
+    image: {{ whackamole_server_container }}:latest
     volumes:
       - .:/app
     environment:
