@@ -4,7 +4,7 @@
     auditpol /set /subcategory:"Special Logon" /success:disable /failure:disable
     auditpol /set /category:"Detailed Tracking" /success:disable /failure:disable
     auditpol /set /category:"Logon/Logoff" /success:disable /failure:disable
-    auditpol /set /category:"Account Management" /success:disable /failure:disabl
+    auditpol /set /category:"Account Management" /success:disable /failure:disable
 
 - name: Silently disable key event providers
   ansible.windows.win_shell: |
