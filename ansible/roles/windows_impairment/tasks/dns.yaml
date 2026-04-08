@@ -3,7 +3,7 @@
     state: present
     canonical_name: "{{ item.ip }}"
     ip_address: "{{ item.ip }}"
-    alias: "{{ item.name }}"
+    aliases: ["{{ item.name }}"]
   loop: "{{ dns_overrides | default([]) }}"
   when: dns_overrides is defined and dns_overrides | length > 0
 

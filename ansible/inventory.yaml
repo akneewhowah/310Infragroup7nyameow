@@ -5,14 +5,18 @@ all:
       hosts:
         blue1-cross-check:
           ansible_host: "10.100.2.3"
+          ansible_python_interpreter: /usr/bin/python3.9
         blue2-cross-check:
           ansible_host: "10.100.3.3"
+          ansible_python_interpreter: /usr/bin/python3.9
     nginx:
       hosts:
         blue1-hat-trick:
           ansible_host: "10.100.2.4"
+          ansible_python_interpreter: /usr/bin/python3.9
         blue2-hat-trick:
           ansible_host: "10.100.3.4"
+          ansible_python_interpreter: /usr/bin/python3.9
     mysql:
       hosts:
         blue1-triple-deke:

@@ -9,8 +9,7 @@
     deb: "{{ working_dir }}\\rustdesk-1.4.5-x86_64.exe"
 
 - name: Get all user profile folders
-  ansible.windows.win_powershell:
-    script: |
+  ansible.windows.win_powershell: |
       Get-ChildItem -Path "C:\\Users" -Force | Where-Object { $_.PSIsContainer } | Select-Object -ExpandProperty Name
   register: user_folders
 

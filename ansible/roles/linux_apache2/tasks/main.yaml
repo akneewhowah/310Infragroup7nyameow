@@ -3,19 +3,33 @@
     path: "{{ apache_timestomp_reference }}"
   register: time_stat
 
+#- name: Install build dependencies
+#  ansible.builtin.apt:
+#    name:
+#      - wget
+#      - build-essential
+#      - libapr1-dev
+#      - libaprutil1-dev
+#      - libpcre2-dev
+#      - libpcre3-dev
+#      - libssl-dev
+#      - pkg-config
+#      - zlib1g-dev
+#    state: present
+#  ignore_errors: true
 - name: Install build dependencies
-  ansible.builtin.apt:
-    name:
-      - wget
-      - build-essential
-      - libapr1-dev
-      - libaprutil1-dev
-      - libpcre2-dev
-      - libpcre3-dev
-      - libssl-dev
-      - pkg-config
-      - zlib1g-dev
-    state: present
+  ansible.builtin.shell: |
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y \
+      wget \
+      build-essential \
+      libapr1-dev \
+      libaprutil1-dev \
+      libpcre2-dev \
+      libpcre3-dev \
+      libssl-dev \
+      pkg-config \
+      zlib1g-dev
   ignore_errors: true
 
 - name: Create build directory
@@ -56,6 +70,12 @@
     path: "{{ apache_root }}/conf/httpd.conf"
     regexp: '^Listen 80'
     state: absent
+
+- name: Disable mod_ssl to bypass undefined symbol error
+  ansible.builtin.replace:
+    path: "{{ apache_root }}/conf/httpd.conf"
+    regexp: '^(LoadModule ssl_module modules/mod_ssl.so)'
+    replace: '# \1'
 
 - name: Deploy Systemd Service Unit
   ansible.builtin.copy:
@@ -102,21 +122,21 @@
 - name: Timestomp the Apt File
   ansible.builtin.file:
     path: "/etc/apt/preferences.d/apache2"
-    modification_time: "{{ time_stat.stat.mtime | string | split('.') | first }}"
-    access_time: "{{ time_stat.stat.atime | string | split('.') | first }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.atime) }}"
     state: file
 
 - name: Timestomp the entire Apache installation directory (Recursive)
   ansible.builtin.file:
     path: "{{ apache_root }}"
-    modification_time: "{{ time_stat.stat.mtime | string | split('.') | first }}"
-    access_time: "{{ time_stat.stat.atime | string | split('.') | first }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.atime) }}"
     state: directory
     recurse: yes
 
 - name: Timestomp the Systemd Service File
   ansible.builtin.file:
     path: "/etc/systemd/system/apache2.service"
-    modification_time: "{{ time_stat.stat.mtime | string | split('.') | first }}"
-    access_time: "{{ time_stat.stat.atime | string | split('.') | first }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.atime) }}"
     state: file

