@@ -13,7 +13,6 @@
       - libpcre3-dev
       - zlib1g-dev
     state: present
-    update_cache: yes
 
 - name: Create build directory
   ansible.builtin.file:
