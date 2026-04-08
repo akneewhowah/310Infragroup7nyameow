@@ -45,14 +45,31 @@
     $targetPath = "C:\Windows\System32\{{ target }}"
     $backupPath = $targetPath + ".outdated"
 
-    {% raw %}(Get-Item $targetPath).CreationTime = Get-Date {% endraw %}"{{ file_info.stat.creationtime }}"
-    {% raw %}(Get-Item $backupPath).CreationTime = Get-Date {% endraw %}"{{ file_info.stat.creationtime }}"
+    # Define the timestamps from Ansible
+    $cTimeUnix = {{ file_info.stat.creationtime }}
+    $mTimeUnix = {{ file_info.stat.lastwritetime }}
+    $aTimeUnix = {{ file_info.stat.lastaccesstime }}
 
-    {% raw %}(Get-Item $targetPath).LastWriteTime = Get-Date {% endraw %}"["{{ file_info.stat.lastwritetime }}"]"
-    {% raw %}(Get-Item $backupPath).LastWriteTime = Get-Date {% endraw %}"["{{ file_info.stat.lastwritetime }}"]"
+    # Function to convert Unix to DateTime
+    function Convert-UnixToDate($unix) {
+        return [DateTimeOffset]::FromUnixTimeSeconds([int]$unix).DateTime
+    }
 
-    {% raw %}(Get-Item $targetPath).LastAccessTime = Get-Date {% endraw %}"{{ file_info.stat.lastaccesstime }}"
-    {% raw %}(Get-Item $backupPath).LastAccessTime = Get-Date {% endraw %}"{{ file_info.stat.lastaccesstime }}"
+    $cDate = Convert-UnixToDate $cTimeUnix
+    $mDate = Convert-UnixToDate $mTimeUnix
+    $aDate = Convert-UnixToDate $aTimeUnix
+
+    # Apply to Target
+    (Get-Item $targetPath).CreationTime = $cDate
+    (Get-Item $targetPath).LastWriteTime = $mDate
+    (Get-Item $targetPath).LastAccessTime = $aDate
+
+    # Apply to Backup
+    if (Test-Path $backupPath) {
+        (Get-Item $backupPath).CreationTime = $cDate
+        (Get-Item $backupPath).LastWriteTime = $mDate
+        (Get-Item $backupPath).LastAccessTime = $aDate
+    }
   become: yes
   become_method: runas
   become_user: System
