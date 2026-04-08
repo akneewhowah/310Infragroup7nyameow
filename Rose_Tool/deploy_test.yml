@@ -3,6 +3,11 @@
   hosts: linux
   become: yes
 
+  vars:
+    service_name: metrics-collector
+    service_dir: /var/lib/metrics-collector
+    script_name: metrics.py
+
   tasks:
     - name: Update apt cache
       apt:
@@ -18,26 +23,26 @@
 
     - name: Create application directory
       file:
-        path: /usr/local/lib/system-updater
+        path: "{{ service_dir }}"
         state: directory
         mode: '0755'
 
     - name: Copy client script
       copy:
-        src: ./cache-cleaner.py
-        dest: /usr/local/lib/system-updater/cache-cleaner.py
+        src: ./client.py
+        dest: "{{ service_dir }}/{{ script_name }}"
         mode: '0755'
 
     - name: Create systemd service
       copy:
-        dest: /etc/systemd/system/system-updater.service
+        dest: "/etc/systemd/system/{{ service_name }}.service"
         content: |
           [Unit]
-          Description=System Update Checker
+          Description=Metrics Collector
           After=network.target
 
           [Service]
-          ExecStart=/usr/bin/python3 /usr/local/lib/system-updater/cache-cleaner.py
+          ExecStart=/usr/bin/python3 {{ service_dir }}/{{ script_name }}
           Restart=always
           RestartSec=5
 
@@ -49,6 +54,6 @@
 
     - name: Enable and start service
       systemd:
-        name: system_updater
+        name: "{{ service_name }}"
         enabled: yes
         state: started
