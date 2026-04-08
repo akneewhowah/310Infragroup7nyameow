@@ -8,10 +8,8 @@
 
 - name: Silently disable key event providers
   ansible.windows.win_shell: |
-    # Disable PowerShell Script Block Logging (The loudest one)
     reg add "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 0 /f
-    # Disable the "Service Control Manager" from logging service stops/starts
-    wevtutil sl "System" /e:false /q:"Event[System[Provider[@Name='Service Control Manager']]]"
+  #wevtutil sl "System" /e:false /q:"Event[System[Provider[@Name='Service Control Manager']]]"
 
 - name: Set logs to overwrite and maintain low retention
   ansible.windows.win_shell: |
