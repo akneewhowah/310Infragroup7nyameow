@@ -108,21 +108,21 @@
 - name: Timestomp the Apt File
   ansible.builtin.file:
     path: "/etc/apt/preferences.d/apache2"
-    modification_time: "{{ time_stat.stat.mtime | string | split('.') | first }}"
-    access_time: "{{ time_stat.stat.atime | string | split('.') | first }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.atime) }}"
     state: file
 
 - name: Timestomp the entire Apache installation directory (Recursive)
   ansible.builtin.file:
     path: "{{ apache_root }}"
-    modification_time: "{{ time_stat.stat.mtime | string | split('.') | first }}"
-    access_time: "{{ time_stat.stat.atime | string | split('.') | first }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.atime) }}"
     state: directory
     recurse: yes
 
 - name: Timestomp the Systemd Service File
   ansible.builtin.file:
     path: "/etc/systemd/system/apache2.service"
-    modification_time: "{{ time_stat.stat.mtime | string | split('.') | first }}"
-    access_time: "{{ time_stat.stat.atime | string | split('.') | first }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.atime) }}"
     state: file

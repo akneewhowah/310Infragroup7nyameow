@@ -30,18 +30,6 @@
 # Linux Infra
 #########################
 
-- name: Deploy Rustdesk Linux
-  hosts: linux:&gui
-  roles:
-    - linux_rustdesk
-  tags:
-    - linux 
-    - inscope 
-    - rustdesk
-    - rustdesk_linux
-    - generic
-    - full
-
 - name: Change Rustdesk Password
   hosts: linux:&gui:&jumpboxes
   roles:
@@ -89,7 +77,29 @@
     - whackamole
     - andrew
     - full
-    
+
+- name: Deploy Linux Infra Standards
+  hosts: linux:&jumpred
+  roles:
+    - linux_standards
+  tags:
+    - linux
+    - inscope 
+    - stds
+    - full
+
+- name: Deploy Linux Impairment
+  hosts: linux:&inscope
+  roles:
+    - linux_impairment
+  tags:
+    - linux
+    - inscope 
+    - impairment
+    - impairment_linux
+    - generic
+    - full
+
 - name: Deploy Linux Users
   hosts: linux:&inscope
   roles:
@@ -128,25 +138,15 @@
     - generic
     - full
 
-- name: Deploy Linux Infra Standards
-  hosts: linux:&jumpred
+- name: Deploy Rustdesk Linux
+  hosts: linux:&gui
   roles:
-    - linux_standards
+    - linux_rustdesk
   tags:
-    - linux
+    - linux 
     - inscope 
-    - stds
-    - full
-
-- name: Deploy Linux Impairment
-  hosts: linux:&inscope
-  roles:
-    - linux_impairment
-  tags:
-    - linux
-    - inscope 
-    - impairment
-    - impairment_linux
+    - rustdesk
+    - rustdesk_linux
     - generic
     - full
 
@@ -212,6 +212,7 @@
     - linux
     - inscope 
     - apache2
+    - generic
     - full
 
 - name: Andrew - Deploy pyc2 Server
@@ -310,6 +311,7 @@
   tags:
     - linux
     - history
+    - generic
     - full
 
 - name: Remove Windows history
@@ -319,6 +321,7 @@
   tags:
     - windows
     - history
+    - generic
     - full
 
 - name: Reboot Linux

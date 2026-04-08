@@ -9,8 +9,8 @@
 
       [Service]
       User=root
-      WorkingDirectory={{ whackamole_deploy_dir }}
-      ExecStart={{ whackamole_deploy_dir }}/venv/bin/python3 {{ whackamole_agent_executable }}
+      WorkingDirectory={{ whackamole_agent_deploy_dir }}
+      ExecStart={{ whackamole_agent_deploy_dir }}/venv/bin/python3 {{ whackamole_agent_executable }}
       Restart=always
 
       [Install]
@@ -20,10 +20,10 @@
 - name: Install Agent as a Windows Service
   community.windows.win_nssm:
     name: "{{ whackamole_service_name }}"
-    executable: "{{ [whackamole_deploy_dir, 'nssm.exe'] | path_join }}"
-    application: "{{ [whackamole_deploy_dir, 'venv', 'Scripts', 'python.exe'] | path_join }}"
-    app_parameters: "{{ [whackamole_deploy_dir, whackamole_agent_executable] | path_join }}"
-    app_directory: "{{ whackamole_deploy_dir }}"
+    executable: "{{ [whackamole_agent_deploy_dir, 'nssm.exe'] | path_join }}"
+    application: "{{ [whackamole_agent_deploy_dir, 'venv', 'Scripts', 'python.exe'] | path_join }}"
+    app_parameters: "{{ [whackamole_agent_deploy_dir, whackamole_agent_executable] | path_join }}"
+    app_directory: "{{ whackamole_agent_deploy_dir }}"
     username: "LocalSystem"
     state: present
   when: ansible_os_family == "Windows"

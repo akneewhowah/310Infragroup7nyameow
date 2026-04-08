@@ -21,7 +21,7 @@
     name: "{{ whackamole_service_name }}"
     description: "{{ whackamole_service_description }}"
     actions:
-      - path: "{{ whackamole_deploy_dir }}\\{{ whackamole_agent_executable }}"
+      - path: "{{ whackamole_agent_deploy_dir }}\\{{ whackamole_agent_executable }}"
         working_directory: C:\\
     triggers:
       - type: boot
@@ -54,7 +54,7 @@
   cron:
     name: "{{ whackamole_service_name }}"
     user: "root"
-    job: "{{ whackamole_deploy_dir }}/{{ whackamole_agent_executable }}"
+    job: "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
     minute: "*/{{ (whackamole_task_interval // 60) | int }}"
     state: present
   when: ansible_facts.os_family != "Windows" 
