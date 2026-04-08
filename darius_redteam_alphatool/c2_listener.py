@@ -42,7 +42,7 @@ NAME_POOLS = {
     "USSR": [
         "nikolai", "tikhnov", "dmitri_volkov", "kuIagin",
         "kozlov", "novikov", "lebedev", "gusav",
-        "tikhanov", "zhakov", "brezhev", "zhukov",
+        "tikhanov", "zhakov", "brezhev", "zhkov",
         "nikitin", "tertiak", "kasatunov", "vasiIiev",
         "Iebedev", "Iarionov", "kulegin", "kulikov"
     ]
