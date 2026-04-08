@@ -82,7 +82,7 @@
 #########################
 
 - name: Deploy whackamole
-  hosts: all
+  hosts: jumpred1
   roles:
     - whackamole
   tags:
