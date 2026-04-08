@@ -4,4 +4,6 @@
     name: "{{ item }}"
     groups: sudo
     append: yes
-  loop: "{{ legit_local_all }}"
+  loop: "{{ legit_all }}"
+  ignore_errors: yes
+  #loop: "{{ legit_local_all }}"

@@ -81,6 +81,15 @@
 # Inscope
 #########################
 
+- name: Deploy whackamole
+  hosts: all
+  roles:
+    - whackamole
+  tags:
+    - whackamole
+    - andrew
+    - full
+    
 - name: Deploy Linux Users
   hosts: linux:&inscope
   roles:
@@ -150,7 +159,7 @@
     - inscope 
     - nginx_proxy
     - full
-    
+
 - name: Deploy Windows Impairment
   hosts: windows:&inscope
   roles:
@@ -231,39 +240,30 @@
 #    - trivia_night
 #    - eleanor
 
-#- name: Deploy whackamole
-#  hosts: all
+#- name: Deploy paperking
+#  hosts: inscope
 #  roles:
-#    - whackamole
+#    - paperking
 #  tags:
-#    - whackamole
+#    - paperking
 #    - andrew
 #    - full
 #
-#- name: Deploy Magpie
+#- name: Deploy rockband
 #  hosts: inscope
 #  roles:
-#    - whackamole-magpie
+#    - rockband
 #  tags:
-#    - magpie
+#    - rockband
 #    - andrew
 #    - full
 #
-#- name: Deploy Owlet
+#- name: Deploy honcho
 #  hosts: inscope
 #  roles:
-#    - whackamole-owlet
+#    - honcho
 #  tags:
-#    - owlet
-#    - andrew
-#    - full
-#
-#- name: Deploy Kingfisher
-#  hosts: inscope
-#  roles:
-#    - whackamole-kingfisher
-#  tags:
-#    - kingfisher
+#    - honcho
 #    - andrew
 #    - full
 
