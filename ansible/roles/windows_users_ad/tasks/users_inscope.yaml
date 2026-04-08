@@ -13,9 +13,9 @@
     valid_domain_users: "{{ ad_user_check.results | selectattr('objects', 'defined') | selectattr('objects', 'ne', []) | map(attribute='item') | list }}"
 
 - name: Assign domain admin group memberships
-  microsoft.ad.group_membership:
+  microsoft.ad.group:
     name: "{{ item }}"
-    members:
+    members: 
       add: "{{ valid_domain_users }}"
     state: present
     domain_username: "{{ ansible_user }}"
@@ -24,6 +24,18 @@
   loop:
     - Domain Admins
     - Enterprise Admins
+  when: valid_domain_users | length > 0
+
+- name: Add domain admins to builtin access groups
+  microsoft.ad.group:
+    identity: "CN={{ item }},CN=Builtin,DC=lakeplacid,DC=local"
+    members:
+      add: "{{ valid_domain_users }}"
+    state: present
+    domain_username: "{{ ansible_user }}"
+    domain_password: "{{ ansible_password }}"
+    domain_server: "{{ domain }}"
+  loop:
     - Remote Management Users
     - Remote Desktop Users
   when: valid_domain_users | length > 0

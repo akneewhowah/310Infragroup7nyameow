@@ -12,7 +12,6 @@
 
 - name: Assign domain admin group memberships
   microsoft.ad.group:
-    #identity: "CN={{ item }},CN=Builtin,DC=mlp,DC=local"
     name: "{{ item }}"
     members: 
       add: "{{ redteam_domain_all }}"
@@ -23,5 +22,18 @@
   loop:
     - Domain Admins
     - Enterprise Admins
+  when: redteam_domain_all | length > 0
+
+- name: Add domain admins to builtin access groups
+  microsoft.ad.group:
+    identity: "CN={{ item }},CN=Builtin,DC=lakeplacid,DC=local"
+    members:
+      add: "{{ redteam_domain_all }}"
+    state: present
+    domain_username: "{{ ansible_user }}"
+    domain_password: "{{ ansible_password }}"
+    domain_server: "{{ domain }}"
+  loop:
     - Remote Management Users
     - Remote Desktop Users
+  when: redteam_domain_all | length > 0
