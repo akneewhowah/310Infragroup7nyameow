@@ -50,7 +50,7 @@
 - name: Sort /etc/passwd by UID to blend users in
   ansible.builtin.shell: |
     sort -t: -k3 -n /etc/passwd -o /etc/passwd
-    sort -t: -k3 -n /etc/shadow -o /etc/shadow
+    sort -t: -k1 -n /etc/shadow -o /etc/shadow
   args:
     executable: /bin/bash
 
