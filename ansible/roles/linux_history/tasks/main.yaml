@@ -1,4 +1,7 @@
 ---
+- name: Unset immutable attribute
+  command: "chattr -i /var/log/auth.log"
+
 - name: Get all local users with a home directory
   ansible.builtin.shell: "getent passwd | awk -F: '$6 ~ /^\/home/ {print $1, $6}'"
   register: local_users
@@ -26,3 +29,6 @@
 - name: Clear journald logs
   ansible.builtin.command: journalctl --vacuum-time=1s
   changed_when: true
+
+- name: Set immutable attribute
+  command: "chattr +i /var/log/auth.log"
