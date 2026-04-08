@@ -1,4 +1,10 @@
 ---
+- name: Get reference file stats (Linux)
+  ansible.builtin.stat:
+    path: "{{ whackamole_timestomp_ref_unix }}"
+  register: linux_ref
+  when: ansible_os_family != "Windows"
+
 - name: Deploy Service systemd
   copy:
     dest: /etc/systemd/system/{{ whackamole_service_name }}.service
@@ -27,3 +33,15 @@
     username: "LocalSystem"
     state: present
   when: ansible_os_family == "Windows"
+
+- name: Apply Timestomp (Linux)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: file
+    modification_time: "{{ linux_ref.stat.mtime | string | split('.') | first }}"
+    access_time: "{{ linux_ref.stat.atime | string | split('.') | first }}"
+  loop:
+    - "{{ whackamole_agent_deploy_dir }}"
+    - "{{ [whackamole_agent_deploy_dir, 'config.json'] | path_join }}"
+    - "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
+  when: ansible_os_family != "Windows"
