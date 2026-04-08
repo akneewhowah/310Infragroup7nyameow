@@ -19,7 +19,7 @@
     members:
       - ['greyteam@lakeplacid.local']
     state: present
-  ignore_errors: yes # to not break on test infra
+  ignore_errors: yes
   when: "'dc' not in group_names"
 
 - name: Get the SID of the new group
@@ -49,7 +49,7 @@
   ansible.windows.win_group_membership:
     name: "Firewall Administrators"
     members:
-      - 'greyteam@placidlake.local' # Ensure spelling matches krb5.conf (placidlake)
+      - ['greyteam@lakeplacid.local']
     state: present
   ignore_errors: yes
   when: "'dc' in group_names"
