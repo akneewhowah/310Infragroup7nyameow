@@ -4,8 +4,7 @@
     auditpol /set /subcategory:"Special Logon" /success:disable /failure:disable
 
 - name: Minimize Event Log retention
-  ansible.windows.win_shell:
-    script: |
+  ansible.windows.win_shell: |
       $Logs = "Security", "System", "Application", "Microsoft-Windows-PowerShell/Operational"
       foreach ($Log in $Logs) {
           # Set max size to 64KB (minimum) and overwrite
