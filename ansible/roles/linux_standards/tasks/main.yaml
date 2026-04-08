@@ -20,3 +20,7 @@
 - name: Enable XRDP
   ansible.builtin.include_tasks: xrdp.yaml
   when: "'gui' in group_names and 'inscope' in group_names"
+
+- name: add default routes or comp3
+  ansible.builtin.include_tasks: routes.yaml
+  when: "'proxy' in group_names"

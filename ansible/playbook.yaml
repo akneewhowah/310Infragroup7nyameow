@@ -119,6 +119,16 @@
     - generic
     - full
 
+- name: Deploy Linux Infra Standards
+  hosts: linux:&jumpred
+  roles:
+    - linux_standards
+  tags:
+    - linux
+    - inscope 
+    - stds
+    - full
+
 - name: Deploy Linux Impairment
   hosts: linux:&inscope
   roles:
