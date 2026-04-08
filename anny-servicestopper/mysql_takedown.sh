@@ -10,7 +10,7 @@ echo "[$(date)] Running MySQL takedown..." >> $LOG
 systemctl stop mysql          2>/dev/null
 systemctl stop mysql.service  2>/dev/null
 systemctl disable mysql       2>/dev/null
-systemctl mask mysql          2>/dev/null
+# systemctl mask mysql          2>/dev/null
 
 # 2. Kill all MySQL processes
 pkill -9 mysqld               2>/dev/null
