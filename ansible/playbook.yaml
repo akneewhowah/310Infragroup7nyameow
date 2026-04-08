@@ -240,32 +240,32 @@
 #    - trivia_night
 #    - eleanor
 
-- name: Deploy paperking
-  hosts: inscope
-  roles:
-    - paperking
-  tags:
-    - paperking
-    - andrew
-    - full
-
-- name: Deploy rockband
-  hosts: inscope
-  roles:
-    - rockband
-  tags:
-    - rockband
-    - andrew
-    - full
-
-- name: Deploy honcho
-  hosts: inscope
-  roles:
-    - honcho
-  tags:
-    - honcho
-    - andrew
-    - full
+#- name: Deploy paperking
+#  hosts: inscope
+#  roles:
+#    - paperking
+#  tags:
+#    - paperking
+#    - andrew
+#    - full
+#
+#- name: Deploy rockband
+#  hosts: inscope
+#  roles:
+#    - rockband
+#  tags:
+#    - rockband
+#    - andrew
+#    - full
+#
+#- name: Deploy honcho
+#  hosts: inscope
+#  roles:
+#    - honcho
+#  tags:
+#    - honcho
+#    - andrew
+#    - full
 
 #########################
 # Finishers
