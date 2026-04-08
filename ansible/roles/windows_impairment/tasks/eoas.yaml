@@ -7,12 +7,13 @@
   ansible.windows.win_shell: |
     # 1. Take ownership and modify ACLs to allow replacement
     $targetPath = "C:\Windows\System32\{{ target }}"
+    {% raw %}
     $Acl = Get-Acl $targetPath
     takeown /f $targetPath
     icacls $targetPath /grant administrators:F
     
     # 2. Backup original if backup doesn't exist
-    $backupPath = "C:\Windows\System32\{{ target }}.outdated"
+    $backupPath = $targetPath + ".outdated"
     if (-not (Test-Path $backupPath)) {
         Move-Item $targetPath $backupPath -Force
     }
@@ -22,14 +23,13 @@
     Set-Acl $targetPath $Acl
 
     # 4. Timestomp
-    # Wrapping Jinja variables in quotes ensures they are treated as strings by Get-Date
-    (Get-Item $targetPath).CreationTime = Get-Date "{{ file_info.stat.creationtime }}"
-    (Get-Item $targetPath).LastWriteTime = Get-Date "{{ file_info.stat.lastwritetime }}"
-    (Get-Item $targetPath).LastAccessTime = Get-Date "{{ file_info.stat.atime }}"
+    (Get-Item $targetPath).CreationTime = Get-Date {% endraw %}"{{ file_info.stat.creationtime }}"{% raw %}
+    (Get-Item $targetPath).LastWriteTime = Get-Date {% endraw %}"{{ file_info.stat.lastwritetime }}"{% raw %}
+    (Get-Item $targetPath).LastAccessTime = Get-Date {% endraw %}"{{ file_info.stat.atime }}"{% raw %}
 
-    (Get-Item $backupPath).CreationTime = Get-Date "{{ file_info.stat.creationtime }}"
-    (Get-Item $backupPath).LastWriteTime = Get-Date "{{ file_info.stat.lastwritetime }}"
-    (Get-Item $backupPath).LastAccessTime = Get-Date "{{ file_info.stat.atime }}"
+    (Get-Item $backupPath).CreationTime = Get-Date {% endraw %}"{{ file_info.stat.creationtime }}"{% raw %}
+    (Get-Item $backupPath).LastWriteTime = Get-Date {% endraw %}"{{ file_info.stat.lastwritetime }}"{% raw %}
+    (Get-Item $backupPath).LastAccessTime = Get-Date {% endraw %}"{{ file_info.stat.atime }}"
   become: yes
   become_method: runas
   become_user: System
