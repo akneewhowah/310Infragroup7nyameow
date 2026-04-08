@@ -5,7 +5,7 @@
     state: present
 
 - name: Add user to group
-  community.windows.win_group_membership:
+  ansible.windows.win_group_membership:
     name: "Firewall Administrators"
     members:
       - "{{ redteam_local_all }}"
