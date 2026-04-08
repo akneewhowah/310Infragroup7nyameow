@@ -2,6 +2,9 @@
 - name: Set custom facts
   ansible.builtin.set_fact:
     cert_dir: "/etc/nginx/ssl"
+
+- name: Set custom facts 2
+  ansible.builtin.set_fact:
     cert_file: "{{ cert_dir }}/nginx-selfsigned.crt"
     key_file: "{{ cert_dir }}/nginx-selfsigned.key"
 
