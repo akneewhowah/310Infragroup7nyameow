@@ -69,33 +69,33 @@ all:
     proxy:
       hosts:
         jumpred_proxy1:
-          ansible_host: "192.168.50.11"
+          ansible_host: "192.168.10.111"
         jumpred_proxy2:
-          ansible_host: "192.168.50.12"
+          ansible_host: "192.168.10.112"
         jumpred_proxy3:
-          ansible_host: "192.168.50.13"
+          ansible_host: "192.168.10.113"
         jumpred_proxy4:
-          ansible_host: "192.168.50.14"
+          ansible_host: "192.168.10.114"
         jumpred_proxy5:
-          ansible_host: "192.168.50.15"
+          ansible_host: "192.168.10.115"
         jumpred_proxy6:
-          ansible_host: "192.168.50.16"
+          ansible_host: "192.168.10.116"
         jumpred_proxy7:
-          ansible_host: "192.168.50.17"
+          ansible_host: "192.168.10.117"
         jumpred_proxy8:
-          ansible_host: "192.168.50.18"
+          ansible_host: "192.168.10.118"
         jumpred_proxy9:
-          ansible_host: "192.168.50.19"
+          ansible_host: "192.168.10.119"
         jumpred_proxy10:
-          ansible_host: "192.168.50.20"
+          ansible_host: "192.168.10.120"
         jumpred_proxy11:
-          ansible_host: "192.168.50.21"
+          ansible_host: "192.168.10.121"
         jumpred_proxy12:
-          ansible_host: "192.168.50.22"
+          ansible_host: "192.168.10.122"
         jumpred_proxy13:
-          ansible_host: "192.168.50.23"
+          ansible_host: "192.168.10.123"
         jumpred_proxy14:
-          ansible_host: "192.168.50.24"
+          ansible_host: "192.168.10.124"
     jumpred:
       children:
         proxy:
