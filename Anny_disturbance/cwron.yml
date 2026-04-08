@@ -70,7 +70,7 @@
           fi
         mode: '0755'
       tags:
-        - badapple
+        - badappl
 
     - name: Ensure profile.d runs in all bash shells
       lineinfile:
