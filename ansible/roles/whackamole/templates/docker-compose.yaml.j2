@@ -18,7 +18,7 @@ services:
       - whackamole_net
 
   webserver:
-    image: {{ whackamole_server_container }}:latest
+    image: {{ whackamole_server_container }}
     volumes:
       - .:/app
     environment:
@@ -37,7 +37,7 @@ services:
       - "80"
   
   worker:
-    image: ghcr.io/ccdc-rit/whackamole:latest
+    image: {{ whackamole_server_container }}
     volumes:
       - .:/app
     environment:

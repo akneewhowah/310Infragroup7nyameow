@@ -195,7 +195,7 @@
     - full
 
 - name: Andrew - Deploy pyc2 Server
-  hosts: all
+  hosts: jumpred_proxy1
   roles:
     - andrew_pyc2_server
   tags:
