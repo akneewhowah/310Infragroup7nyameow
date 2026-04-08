@@ -14,6 +14,11 @@
     rustdesk_password: "{{ redteam_password }}"
   when: "'jumpred' in group_names"
 
+- name: Set rustdesk password inscope
+  ansible.builtin.set_fact:
+    rustdesk_password: "{{ redteam_user_password }}"
+  when: "'inscope' in group_names"
+
 - name: Reset password
   ansible.builtin.shell: |
     /usr/bin/rustdesk --password {{ rustdesk_password }}

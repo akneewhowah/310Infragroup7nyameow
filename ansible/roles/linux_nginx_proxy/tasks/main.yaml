@@ -1,0 +1,76 @@
+---
+- name: Set custom facts
+  ansible.builtin.set_fact:
+    cert_dir: "/etc/nginx/ssl"
+    cert_file: "{{ cert_dir }}/nginx-selfsigned.crt"
+    key_file: "{{ cert_dir }}/nginx-selfsigned.key"
+
+- name: Install Nginx and OpenSSL
+  ansible.builtin.package:
+    name: 
+      - nginx
+      - openssl
+    state: present
+
+- name: Create directory for SSL certificates
+  ansible.builtin.file:
+    path: "{{ cert_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Generate self-signed SSL certificate
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -nodes -days 365 -newkey rsa:2048
+      -keyout {{ key_file }}
+      -out {{ cert_file }}
+      -subj "/C=US/ST=NY/L=Rochester/O=IT/CN={{ ansible_host }}"
+  args:
+    creates: "{{ cert_file }}"
+
+- name: Configure Nginx Proxy Pass
+  ansible.builtin.copy:
+    dest: /etc/nginx/sites-available/c2-proxy
+    content: |
+      server {
+          listen 443 ssl;
+          server_name _;
+
+          ssl_certificate {{ cert_file }};
+          ssl_certificate_key {{ key_file }};
+
+          # Security hardening
+          server_tokens off;
+
+          location / {
+              proxy_pass https://{{ whackamole_host_ip }}:443;
+              
+              # Ensure the proxy passes the correct host and IP info
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+
+              # Allow for large C2 callbacks if necessary
+              client_max_body_size 50M;
+              
+              # Disable buffering for real-time C2 communication
+              proxy_buffering off;
+          }
+      }
+
+- name: Enable the Nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/c2-proxy
+    dest: /etc/nginx/sites-enabled/c2-proxy
+    state: link
+
+- name: Remove default Nginx config
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Restart Nginx to apply changes
+  ansible.builtin.service:
+    name: nginx
+    state: restarted
