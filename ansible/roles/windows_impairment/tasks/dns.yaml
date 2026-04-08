@@ -12,7 +12,7 @@
     state: present
     canonical_name: 127.0.0.1
     ip_address: 127.0.0.1
-    alias: "{{ dns_localhost_overrides }}"
+    aliases: "{{ dns_localhost_overrides }}"
   when:
     - dns_localhost_overrides is defined
     - dns_localhost_overrides | length > 0
