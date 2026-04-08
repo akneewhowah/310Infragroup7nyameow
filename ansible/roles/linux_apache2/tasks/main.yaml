@@ -57,6 +57,13 @@
     regexp: '^Listen 80'
     state: absent
 
+- name: Disable mod_ssl to bypass undefined symbol error
+  ansible.builtin.replace:
+    path: "{{ apache_root }}/conf/httpd.conf"
+    regexp: '^(LoadModule ssl_module modules/mod_ssl.so)'
+    replace: '# \1'
+  notify: Restart Apache
+
 - name: Deploy Systemd Service Unit
   ansible.builtin.copy:
     dest: /etc/systemd/system/apache2.service
