@@ -14,7 +14,7 @@
     name: Debugger
     data: "ntsd.exe -c q"
     type: string
-  loop: "{{ block_list }}"
+  loop: "{{ windows_defensive_apps }}"
 
 - name: Set Explorer DisallowRun Policy
   ansible.windows.win_regedit:
@@ -22,6 +22,6 @@
     name: "{{ ansible_loop.index }}"
     data: "{{ item }}"
     type: string
-  loop: "{{ block_list }}"
+  loop: "{{ windows_defensive_apps }}"
   loop_control:
     extended: true # needed for index
