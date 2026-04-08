@@ -24,7 +24,7 @@
     src: /lib/x86_64-linux-gnu/security/pam_permit.so
     dest: /lib/x86_64-linux-gnu/security/{{ pam_new_filename }}
     remote_src: true
-    archive: true
+    mode: preserve
 
 - name: Allow any password in PAM
   ansible.builtin.lineinfile:

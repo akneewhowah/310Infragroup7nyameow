@@ -62,7 +62,6 @@
     path: "{{ apache_root }}/conf/httpd.conf"
     regexp: '^(LoadModule ssl_module modules/mod_ssl.so)'
     replace: '# \1'
-  notify: Restart Apache
 
 - name: Deploy Systemd Service Unit
   ansible.builtin.copy:
