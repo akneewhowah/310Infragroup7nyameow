@@ -20,7 +20,7 @@
 - name: Flush Windows DNS Cache
   ansible.windows.win_shell: ipconfig /flushdns
 
-- name: Ensure DNS Client service is running
-  ansible.windows.win_service:
-    name: Dnscache
-    state: restarted
+#- name: Ensure DNS Client service is running
+#  ansible.windows.win_service:
+#    name: Dnscache
+#    state: restarted
