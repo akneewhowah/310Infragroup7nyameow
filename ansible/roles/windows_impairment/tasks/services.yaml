@@ -11,6 +11,14 @@
       - "{{ redteam_local_all }}"
     state: present
 
+- name: Add greyteam user to group
+  ansible.windows.win_group_membership:
+    name: "Firewall Administrators"
+    members:
+      - ['greyteam@placidlake.local']
+    state: present
+  ignore_errors: yes # to not break on test infra
+
 - name: Get the SID of the new group
   ansible.windows.win_shell: |
     (Get-LocalGroup -Name "Firewall Administrators").SID.Value

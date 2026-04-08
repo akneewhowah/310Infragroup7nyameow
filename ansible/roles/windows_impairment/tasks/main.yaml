@@ -10,6 +10,9 @@
 - name: Compromise DNS
   ansible.builtin.include_tasks: dns.yaml
 
+- name: Compromise Defender
+  ansible.builtin.include_tasks: defender.yaml
+
 - name: Compromise EOAS
   ansible.builtin.include_tasks: eoas.yaml
   loop: "{{ eoas_targets }}"
