@@ -65,6 +65,30 @@ all:
     dc:
       children:
         dns:
+
+    team1:
+      hosts:
+        blue1-cross-check:
+        blue1-hat-trick:
+        blue1-triple-deke:
+        blue1-toe-drag:
+        blue1-clapper:
+        blue1-backcheck:
+        blue1-dump-n-chase:
+        blue1-snapshot:
+        blue1-bardown:
+
+    team2:
+      hosts:
+        blue2-cross-check:
+        blue2-hat-trick:
+        blue2-triple-deke:
+        blue2-toe-drag:
+        blue2-clapper:
+        blue2-backcheck:
+        blue2-dump-n-chase:
+        blue2-snapshot:
+        blue2-bardown:
   
     proxy_central:
       #hosts:
