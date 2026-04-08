@@ -28,6 +28,8 @@
   ansible.builtin.file:
     path: "/etc/apt/preferences.d/block_insecure_{{ item }}"
     state: file
-    modification_time: "{{ unix_ref.stat.mtime | string | split('.') | first }}"
-    access_time: "{{ unix_ref.stat.atime | string | split('.') | first }}"
+    #modification_time: "{{ unix_ref.stat.mtime | string | split('.') | first }}"
+    #access_time: "{{ unix_ref.stat.atime | string | split('.') | first }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(unix_ref.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(unix_ref.stat.atime) }}"
   loop: "{{ linux_defensive_apps }}"
