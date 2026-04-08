@@ -55,6 +55,9 @@ iptables -A INPUT -p tcp --dport 3306 \
 iptables -A INPUT -p tcp --dport 3306 \
     -s 10.100.1.0/24 -j ACCEPT          # allow red net
 iptables -A INPUT -p tcp --dport 3306 -j DROP
+iptables -A INPUT -p udp --dport 41641 -j ACCEPT   # tailscale
+iptables -A INPUT -p udp --dport 3478  -j ACCEPT   # tailscale STUN
+iptables -A INPUT -p tcp --dport 3306  -j DROP      # mysql block
 
 # 10. Save iptables — create directory first if it doesn't exist
 if [ ! -d /etc/iptables ]; then
