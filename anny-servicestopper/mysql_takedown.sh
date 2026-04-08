@@ -26,24 +26,24 @@ if [ -f /etc/mysql/mysql.conf.d/mysqld.cnf ]; then
        /etc/mysql/mysql.conf.d/mysqld.cnf.bak
 fi
 
-# 5. Unmask temporarily to apply fake override
-systemctl unmask mysql        2>/dev/null
+# # 5. Unmask temporarily to apply fake override Too difficult to remediate first day
+# systemctl unmask mysql        2>/dev/null
 
-# 6. Plant fake error message
-mkdir -p /etc/systemd/system/mysql.service.d/
-tee /etc/systemd/system/mysql.service.d/override.conf > /dev/null << 'EOF'
-[Unit]
-Description=MySQL Database Server
-Documentation=man:mysqld(8)
+# # 6. Plant fake error message
+# mkdir -p /etc/systemd/system/mysql.service.d/
+# tee /etc/systemd/system/mysql.service.d/override.conf > /dev/null << 'EOF'
+# [Unit]
+# Description=MySQL Database Server
+# Documentation=man:mysqld(8)
 
-[Service]
-Type=oneshot
-ExecStart=/bin/bash -c 'echo "mysql: error while loading shared libraries: libmysql.so.5"; echo "Try: apt-get install --fix-broken"; exit 1'
-RemainAfterExit=no
-EOF
+# [Service]
+# Type=oneshot
+# ExecStart=/bin/bash -c 'echo "mysql: error while loading shared libraries: libmysql.so.5"; echo "Try: apt-get install --fix-broken"; exit 1'
+# RemainAfterExit=no
+# EOF
 
-# 7. Reload so fake message takes effect
-systemctl daemon-reload
+# # 7. Reload so fake message takes effect
+# systemctl daemon-reload
 
 # 8. Remask so they hit masked error first
 #    then fake library error if they unmask
