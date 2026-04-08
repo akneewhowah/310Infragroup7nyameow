@@ -69,8 +69,13 @@
 
 - name: Deploy webserver config file
   template:
-    src: config.json.j2
-    dest: "{{ cppc2_deploy_dir }}/config.json"
+    src: config-server.toml.j2
+    dest: "{{ cppc2_deploy_dir }}/app/config.toml"
+
+- name: Deploy cli config file
+  template:
+    src: config-cli.toml.j2
+    dest: "{{ cppc2_deploy_dir }}/cli/config.toml"
 
 - name: Ensure OpenSSL is installed
   package:

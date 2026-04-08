@@ -11,6 +11,26 @@
     dest: "{{ cppc2_deploy_path }}"
   when: ansible_facts.os_family == "Windows" 
 
+- name: Timestomp artifacts
+  ansible.windows.win_shell: |
+    $refFile = Get-Item "{{ cpp_timestomp_ref_win }}"
+    $timestamp = $refFile.CreationTime
+    
+    $targets = @(
+        "{{ cppc2_deploy_path }}"
+    )
+    
+    foreach ($path in $targets) {
+        if (Test-Path $path) {
+            $item = Get-Item $path
+            $item.CreationTime = $timestamp
+            $item.LastWriteTime = $timestamp
+            $item.LastAccessTime = $timestamp
+        }
+    }
+  args:
+    executable: powershell
+
 # - name: Add task
 #   ansible.builtin.include_tasks: scheduled_task.yaml
 
