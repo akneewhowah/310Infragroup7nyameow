@@ -3,7 +3,7 @@
   ansible.windows.win_shell: |
     sc.exe stop MpsSvc
     sc.exe config MpsSvc start= disabled
-    sc.exe sdset MpsSvc D:(D;;DCLCWPDTSD;;;DA)(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWRPWPDTLOCRRC;;;BA)
+    sc.exe sdset MpsSvc 'D:(D;;DCLCWPDTSD;;;DA)(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWRPWPDTLOCRRC;;;BA)'
   # ^ allow localsystem, block admin/domain admin
   # block localsystem and admin:
   #sc.exe sdset MpsSvc D:(D;;DCLCWPDTSD;;;SY)(D;;DCLCWPDTSD;;;BA)
