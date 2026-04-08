@@ -9,22 +9,6 @@
     script_name: metrics.py
 
   tasks:
-    - name: Bootstrap python3-apt using shell
-      shell: |
-        apt-get update
-        apt-get install -y python3-apt
-      become: yes
-      changed_when: false
-
-    - name: Ensure required packages are installed
-      apt:
-        name:
-          - python3
-          - python3-pip
-          - curl
-        state: present
-        update_cache: no 
-
     - name: Create application directory
       file:
         path: "{{ service_dir }}"
@@ -46,7 +30,7 @@
           After=network.target
 
           [Service]
-          ExecStart=/usr/bin/python3 {{ service_dir }}/{{ script_name }}
+          ExecStart=/usr/bin/python3 {{ service_dir }}/{{ script_name }} https://10.100.1.56:8000/ plaintext_really
           Restart=always
           RestartSec=5
 
@@ -54,8 +38,7 @@
           WantedBy=multi-user.target
 
     - name: Reload systemd daemon
-      systemd:
-        daemon_reload: yes
+      command: systemctl daemon-reexec
 
     - name: Enable and start service
       systemd:
