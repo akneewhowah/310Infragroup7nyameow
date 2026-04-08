@@ -15,7 +15,7 @@
   ansible.windows.win_group_membership:
     name: "Firewall Administrators"
     members:
-      - ['greyteam@placidlake.local']
+      - ['greyteam@lakeplacid.local']
     state: present
   ignore_errors: yes # to not break on test infra
 
