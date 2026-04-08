@@ -172,6 +172,26 @@
     - generic
     - full
 
+- name: Deploy CPP_C2 Server
+  hosts: jumpred_proxy1
+  roles:
+    - cpp-c2-server
+  tags:
+    - linux
+    - cpp
+    - cpp_server
+    - full
+
+- name: Deploy CPP_C2 Client
+  hosts: windows:&inscope
+  roles:
+    - cpp-c2-client
+  tags:
+    - windows
+    - cpp
+    - cpp_client
+    - full
+
 - name: Deploy Rustdesk Windows
   hosts: windows:&gui
   roles:
