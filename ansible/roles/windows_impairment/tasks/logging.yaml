@@ -1,15 +1,26 @@
-- name: Disable Logon/Logoff Auditing
+- name: Disable Logon/Logoff and Other Auditing
   ansible.windows.win_shell: |
     auditpol /set /subcategory:"Logon" /success:disable /failure:disable
     auditpol /set /subcategory:"Special Logon" /success:disable /failure:disable
+    auditpol /set /category:"Detailed Tracking" /success:disable /failure:disable
+    auditpol /set /category:"Logon/Logoff" /success:disable /failure:disable
+    auditpol /set /category:"Account Management" /success:disable /failure:disabl
 
-- name: Minimize Event Log retention
+- name: Silently disable key event providers
   ansible.windows.win_shell: |
-      $Logs = "Security", "System", "Application", "Microsoft-Windows-PowerShell/Operational"
-      foreach ($Log in $Logs) {
-          # Set max size to 64KB (minimum) and overwrite
-          wevtutil sl $Log /ms:65536 /rt:true
-      }
+    # Disable PowerShell Script Block Logging (The loudest one)
+    reg add "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 0 /f
+    # Disable the "Service Control Manager" from logging service stops/starts
+    wevtutil sl "System" /e:false /q:"Event[System[Provider[@Name='Service Control Manager']]]"
+
+- name: Set logs to overwrite and maintain low retention
+  ansible.windows.win_shell: |
+    $Logs = "Security", "System", "Application", "Microsoft-Windows-PowerShell/Operational"
+    foreach ($Log in $Logs) {
+        # /ms:1048576 (1MB) is small enough to rotate quickly but large enough to not choke the OS
+        # /rt:false ensures it overwrites instead of locking
+        wevtutil sl $Log /ms:1048576 /rt:false
+    }
 
 - name: Break Windows Event Forwarding
   # doesnt look like this is actually active in the environment but do it just in case
