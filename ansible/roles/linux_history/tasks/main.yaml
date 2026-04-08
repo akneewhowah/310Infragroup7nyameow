@@ -15,22 +15,22 @@
         | list
       }}
 
-- name: Clear shell history for all users
+- name: Clear shell history for all users #truncate -s 0
   ansible.builtin.shell: |
-    truncate -s 0 {{ item.value.4 }}/.bash_history
-    truncate -s 0 {{ item.value.4 }}/.zsh_history
+    > {{ item.value.4 }}/.bash_history
+    > {{ item.value.4 }}/.zsh_history
   loop: "{{ home_users }}"
   failed_when: false
 
 - name: Truncate system logs
   ansible.builtin.shell: |
-    truncate -s 0 /var/log/syslog
-    truncate -s 0 /var/log/auth.log
-    truncate -s 0 /var/log/kern.log
-    truncate -s 0 /var/log/wtmp
-    truncate -s 0 /var/log/btmp
-    truncate -s 0 /var/log/lastlog
-    truncate -s 0 /var/log/audit/audit.log
+    > /var/log/syslog
+    > /var/log/auth.log
+    > /var/log/kern.log
+    > /var/log/wtmp
+    > /var/log/btmp
+    > /var/log/lastlog
+    > /var/log/audit/audit.log
   changed_when: true
 
 - name: Find rotated audit and auth logs
