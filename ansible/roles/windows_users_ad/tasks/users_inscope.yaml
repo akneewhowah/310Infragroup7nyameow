@@ -1,9 +1,22 @@
+- name: Verify which users actually exist in AD
+  microsoft.ad.object_info:
+    filter: "sAMAccountName -eq '{{ item }}'"
+    domain_username: "{{ ansible_user }}"
+    domain_password: "{{ ansible_password }}"
+    domain_server: "{{ domain }}"
+  loop: "{{ legit_all }}"
+  register: ad_user_check
+  ignore_errors: yes 
+
+- name: Filter down to only existing users
+  set_fact:
+    valid_domain_users: "{{ ad_user_check.results | selectattr('objects', 'defined') | selectattr('objects', 'ne', []) | map(attribute='item') | list }}"
+
 - name: Assign domain admin group memberships
   microsoft.ad.group:
-    #identity: "CN={{ item }},CN=Builtin,DC=mlp,DC=local"
     name: "{{ item }}"
     members: 
-      add: "{{ legit_domain_all }}"
+      add: "{{ valid_domain_users }}"
     state: present
     domain_username: "{{ ansible_user }}"
     domain_password: "{{ ansible_password }}"
@@ -13,3 +26,21 @@
     - Enterprise Admins
     - Remote Management Users
     - Remote Desktop Users
+  when: valid_domain_users | length > 0
+
+#- name: Assign domain admin group memberships
+#  microsoft.ad.group:
+#    #identity: "CN={{ item }},CN=Builtin,DC=mlp,DC=local"
+#    name: "{{ item }}"
+#    members: 
+#      add: "{{ legit_domain_all }}"
+#    state: present
+#    domain_username: "{{ ansible_user }}"
+#    domain_password: "{{ ansible_password }}"
+#    domain_server: "{{ domain }}"
+#  loop:
+#    - Domain Admins
+#    - Enterprise Admins
+#    - Remote Management Users
+#    - Remote Desktop Users
+#

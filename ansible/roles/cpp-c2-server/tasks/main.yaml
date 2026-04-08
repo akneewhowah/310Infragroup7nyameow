@@ -1,0 +1,8 @@
+---
+- name: Install Docker
+  ansible.builtin.include_tasks: docker.yaml
+  when: ansible_default_ipv4.address == cppc2_server_ip
+
+- name: Deploy Server
+  ansible.builtin.include_tasks: deploy.yaml
+  when: ansible_default_ipv4.address == cppc2_server_ip

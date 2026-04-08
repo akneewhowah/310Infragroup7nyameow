@@ -4,7 +4,9 @@
     members:
       - "{{ item }}"
     state: present
-  loop: "{{ legit_local_all }}"
+  loop: "{{ legit_all }}"
+  ignore_errors: yes
+  #loop: "{{ legit_local_all }}"
 
 - name: Add local user to the Remote Desktop Users group
   community.windows.win_group_membership:
@@ -12,4 +14,6 @@
     members:
       - "{{ item }}"
     state: present
-  loop: "{{ legit_local_all }}"
+  loop: "{{ legit_all }}"
+  ignore_errors: yes
+  #loop: "{{ legit_local_all }}"

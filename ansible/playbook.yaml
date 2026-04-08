@@ -81,6 +81,15 @@
 # Inscope
 #########################
 
+- name: Deploy whackamole
+  hosts: jumpred1
+  roles:
+    - whackamole
+  tags:
+    - whackamole
+    - andrew
+    - full
+    
 - name: Deploy Linux Users
   hosts: linux:&inscope
   roles:
@@ -144,13 +153,13 @@
 - name: Deploy NGINX Proxy
   hosts: jumpred_proxy11:jumpred_proxy12:jumpred_proxy13:jumpred_proxy14
   roles:
-    - linux_apache2
+    - linux_nginx_proxy
   tags:
     - linux
     - inscope 
     - nginx_proxy
     - full
-    
+
 - name: Deploy Windows Impairment
   hosts: windows:&inscope
   roles:
@@ -161,6 +170,26 @@
     - impairment
     - impairment_windows
     - generic
+    - full
+
+- name: Deploy CPP_C2 Server
+  hosts: jumpred_proxy1
+  roles:
+    - cpp-c2-server
+  tags:
+    - linux
+    - cpp
+    - cpp_server
+    - full
+
+- name: Deploy CPP_C2 Client
+  hosts: windows:&inscope
+  roles:
+    - cpp-c2-client
+  tags:
+    - windows
+    - cpp
+    - cpp_client
     - full
 
 - name: Deploy Rustdesk Windows
@@ -186,7 +215,7 @@
     - full
 
 - name: Andrew - Deploy pyc2 Server
-  hosts: all
+  hosts: jumpred1
   roles:
     - andrew_pyc2_server
   tags:
@@ -231,39 +260,30 @@
 #    - trivia_night
 #    - eleanor
 
-#- name: Deploy whackamole
-#  hosts: all
+#- name: Deploy paperking
+#  hosts: inscope
 #  roles:
-#    - whackamole
+#    - paperking
 #  tags:
-#    - whackamole
+#    - paperking
 #    - andrew
 #    - full
 #
-#- name: Deploy Magpie
+#- name: Deploy rockband
 #  hosts: inscope
 #  roles:
-#    - whackamole-magpie
+#    - rockband
 #  tags:
-#    - magpie
+#    - rockband
 #    - andrew
 #    - full
 #
-#- name: Deploy Owlet
+#- name: Deploy honcho
 #  hosts: inscope
 #  roles:
-#    - whackamole-owlet
+#    - honcho
 #  tags:
-#    - owlet
-#    - andrew
-#    - full
-#
-#- name: Deploy Kingfisher
-#  hosts: inscope
-#  roles:
-#    - whackamole-kingfisher
-#  tags:
-#    - kingfisher
+#    - honcho
 #    - andrew
 #    - full
 

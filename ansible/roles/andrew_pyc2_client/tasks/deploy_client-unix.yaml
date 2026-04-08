@@ -1,4 +1,8 @@
 ---
+- name: Get reference file stats (Common for Unix/BSD)
+  ansible.builtin.stat:
+    path: "{{ pyc2_timestomp_ref_unix }}"
+  register: unix_ref
 
 #- name: Install Python 3 and pip3 on Debian/Ubuntu
 #  ansible.builtin.package:
@@ -208,16 +212,26 @@
 #    state: started
 #  when: ansible_os_family == 'FreeBSD'
 
-- name: Timestomp the systemd service file debian
-  command: touch -r /bin/sh /etc/systemd/system/{{ pyc2_service_name }}.service
-  when: ansible_os_family == 'Debian'
+#- name: Timestomp the systemd service file debian
+#  command: touch -r /bin/sh /etc/systemd/system/{{ pyc2_service_name }}.service
+#  when: ansible_os_family == 'Debian'
+#
+#- name: Timestomp the systemd service file freebsd
+#  command: touch -r /bin/sh /usr/local/etc/rc.d/{{ pyc2_service_name }}
+#  when: ansible_os_family == 'FreeBSD'
+#
+#- name: Timestomp script to match /bin/sh creation time
+#  command: touch -r /bin/sh {{ pyc2_client_location_unix }}
 
-- name: Timestomp the systemd service file freebsd
-  command: touch -r /bin/sh /usr/local/etc/rc.d/{{ pyc2_service_name }}
-  when: ansible_os_family == 'FreeBSD'
-
-- name: Timestomp script to match /bin/sh creation time
-  command: touch -r /bin/sh {{ pyc2_client_location_unix }}
+- name: Apply Timestomp to all deployed files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: file
+    modification_time: "{{ unix_ref.stat.mtime | string | split('.') | first }}"
+    access_time: "{{ unix_ref.stat.atime | string | split('.') | first }}"
+  loop:
+    - "{{ pyc2_client_location_unix }}"
+    - "{{ (ansible_os_family == 'Debian') | ternary('/etc/systemd/system/' + pyc2_service_name + '.service', '/usr/local/etc/rc.d/' + pyc2_service_name) }}"
 
 - name: Set immutable attribute on script
   command: "chattr +i {{ pyc2_client_location_unix }}"

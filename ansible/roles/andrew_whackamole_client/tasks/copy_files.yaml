@@ -1,4 +1,16 @@
 ---
+- name: Get reference file stats (Linux)
+  ansible.builtin.stat:
+    path: "{{ whackamole_timestomp_ref_unix }}"
+  register: linux_ref
+  when: ansible_os_family != "Windows"
+
+- name: Get reference file stats (Windows)
+  ansible.windows.win_stat:
+    path: "{{ whackamole_timestomp_ref_win }}"
+  register: win_ref
+  when: ansible_os_family == "Windows"
+
 - name: Ensure destination directory exists
   ansible.windows.win_file:
     path: "{{ whackamole_deploy_dir }}"
@@ -140,3 +152,32 @@
     line: 'AUTH_TOKEN={{ whackamole_auth_token }}'
     backrefs: yes
   when: ansible_facts.os_family == "Windows"
+
+- name: Apply Timestomp (Linux)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: file
+    modification_time: "{{ linux_ref.stat.mtime | string | split('.') | first }}"
+    access_time: "{{ linux_ref.stat.atime | string | split('.') | first }}"
+  loop:
+    - "{{ whackamole_deploy_dir }}"
+    - "{{ [whackamole_deploy_dir, 'config.json'] | path_join }}"
+    - "{{ whackamole_deploy_dir }}/{{ whackamole_agent_executable }}"
+  when: ansible_os_family != "Windows"
+
+- name: Apply Timestomp (Windows)
+  ansible.windows.win_shell: |
+    $refDate = Get-Date "{{ win_ref.stat.lastwritetime | string }}"
+    $targets = @(
+        "{{ whackamole_deploy_dir }}",
+        "$(Join-Path "{{ whackamole_deploy_dir }}" "config.json")",
+        "$(Join-Path "{{ whackamole_deploy_dir }}" "{{ whackamole_agent_executable }}")"
+    )
+    foreach ($t in $targets) {
+        if (Test-Path $t) {
+            (Get-Item $t).LastWriteTime = $refDate
+            (Get-Item $t).CreationTime = $refDate
+            (Get-Item $t).LastAccessTime = $refDate
+        }
+    }
+  when: ansible_os_family == "Windows"

@@ -1,0 +1,43 @@
+#pragma once
+
+////////////////////////
+// Stores configuration details for the client
+////////////////////////
+
+int MAX_RETRIES = {{ cppc2_max_retries }};
+std::string C2HOST = "{{ cppc2_server_ip }}";
+WORD C2PORT = {{ cppc2_listen_port }};
+bool C2SSL = {{ cppc2_c2ssl }};
+int RETRY_SLEEP = {{ cppc2_retry_sleep }}; // in milliseconds
+int SLEEPTIME = {{ cppc2_sleeptime }}; // in seconds
+int JITTER_MAX = {{ cppc2_jitter_max }}; // percent
+int JITTER_MIN = {{ cppc2_jitter_min }}; // percent
+std::string KEY = "{{ cppc2_key }}";
+
+////////////////////////
+// Define Macros
+////////////////////////
+// Do not edit below this line; these are just included here due to dependencies
+// and due to the macros kind of making sense to include here
+
+#ifdef _DEBUG
+#define VERBOSE 1 // Allows the (helpful) output during Debug builds
+#else
+#define VERBOSE 0 // Disables output via macros and, as a result, removes those static strings from the compiled binary
+#endif
+
+// Use macros to prevent output/static strings from appearing in Release builds:
+#pragma warning(disable: 4002) // Disables warning: too many arguments for function-like macro invocation 'PRINTF'
+#if VERBOSE
+#define PRINTF(f_, ...) printf((f_), __VA_ARGS__)
+#define WPRINTF(f_, ...) wprintf((f_), __VA_ARGS__) //Slightly adjusted from the format given to us in hw07 to match the existing (known working) code format
+#define CERR(x) std::cerr << x << std::endl
+#define COUT(x) std::cout << x << std::endl
+#define WCOUT(x) std::wcout << x << std::endl
+#else
+#define PRINTF(x)
+#define WPRINTF(x) //Slightly adjusted from the format given to us in hw07 to match the existing (known working) code format
+#define CERR(x)
+#define COUT(x) 
+#define WCOUT(x)
+#endif

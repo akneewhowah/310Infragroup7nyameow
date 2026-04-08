@@ -1,0 +1,38 @@
+---
+- name: Ensure destination directory exists
+  ansible.windows.win_file:
+    path: "{{ cppc2_deploy_path | win_dirname }}"
+    state: directory
+  when: ansible_facts.os_family == "Windows" 
+
+- name: Copy agent executable to target
+  win_copy:
+    src: "files/agent.exe"
+    dest: "{{ cppc2_deploy_path }}"
+  when: ansible_facts.os_family == "Windows" 
+
+- name: Timestomp artifacts
+  ansible.windows.win_shell: |
+    $refFile = Get-Item "{{ cpp_timestomp_ref_win }}"
+    $timestamp = $refFile.CreationTime
+    
+    $targets = @(
+        "{{ cppc2_deploy_path }}"
+    )
+    
+    foreach ($path in $targets) {
+        if (Test-Path $path) {
+            $item = Get-Item $path
+            $item.CreationTime = $timestamp
+            $item.LastWriteTime = $timestamp
+            $item.LastAccessTime = $timestamp
+        }
+    }
+  args:
+    executable: powershell
+
+# - name: Add task
+#   ansible.builtin.include_tasks: scheduled_task.yaml
+
+# - name: Add service
+#   ansible.builtin.include_tasks: service.yaml

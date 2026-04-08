@@ -1,0 +1,8 @@
+---
+- name: Install Docker
+  ansible.builtin.include_tasks: docker.yaml
+  #when: ansible_default_ipv4.address == whackamole_host_ip
+
+- name: Deploy whackamole
+  ansible.builtin.include_tasks: deploy.yaml
+  #when: ansible_default_ipv4.address == whackamole_host_ip

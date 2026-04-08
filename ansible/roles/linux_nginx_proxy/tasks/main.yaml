@@ -2,6 +2,9 @@
 - name: Set custom facts
   ansible.builtin.set_fact:
     cert_dir: "/etc/nginx/ssl"
+
+- name: Set custom facts 2
+  ansible.builtin.set_fact:
     cert_file: "{{ cert_dir }}/nginx-selfsigned.crt"
     key_file: "{{ cert_dir }}/nginx-selfsigned.key"
 
@@ -28,7 +31,7 @@
   args:
     creates: "{{ cert_file }}"
 
-- name: Configure Nginx Proxy Pass
+- name: Configure Nginx Proxy Pass (Dual Port)
   ansible.builtin.copy:
     dest: /etc/nginx/sites-available/c2-proxy
     content: |
@@ -38,23 +41,64 @@
 
           ssl_certificate {{ cert_file }};
           ssl_certificate_key {{ key_file }};
-
-          # Security hardening
           server_tokens off;
 
           location / {
+
+              {% for ip in whackamole_allow_ips_web %}
+              allow {{ ip }};
+              {% endfor %}
+      
+              deny all;
+
               proxy_pass https://{{ whackamole_host_ip }}:443;
-              
-              # Ensure the proxy passes the correct host and IP info
               proxy_set_header Host $host;
               proxy_set_header X-Real-IP $remote_addr;
               proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
               proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_buffering off;
+          }
+          location ^~ /web/ {
+              {% for ip in whackamole_allow_ips_web %}
+              allow {{ ip }};
+              {% endfor %}
+      
+              deny all;
 
-              # Allow for large C2 callbacks if necessary
-              client_max_body_size 50M;
-              
-              # Disable buffering for real-time C2 communication
+              proxy_pass https://{{ whackamole_host_ip }}:443;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_buffering off;
+          }
+          location ^~ /agent/ {
+            {% for ip in whackamole_allow_ips_agent %}
+            allow {{ ip }};
+            {% endfor %}
+    
+            deny all;
+    
+            proxy_pass https://{{ whackamole_host_ip }}:443;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_buffering off;
+        }
+      }
+
+      server {
+          listen 80;
+          server_name _;
+          server_tokens off;
+
+          location / {
+              proxy_pass http://{{ pyc2_host_ip }}:80;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
               proxy_buffering off;
           }
       }
