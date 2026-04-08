@@ -1,0 +1,87 @@
+---
+- name: Deploy Bad Apple ASCII animation on login
+  hosts: ubuntu_vms
+  become: yes
+
+  vars:
+    install_dir: /usr/share/doc/python3-lib2to3/.hidden
+
+  tasks:
+    - name: Install dependencies
+      apt:
+        name:
+          - python3
+          - python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Create install directory
+      file:
+        path: "{{ install_dir }}"
+        state: directory
+        mode: '0755'
+
+    # 🔥 CREATE VENV
+    - name: Create virtual environment
+      command: python3 -m venv {{ install_dir }}/runtime
+      args:
+        creates: "{{ install_dir }}/runtime/bin/python3"
+
+    # 🔥 INSTALL OPENCV INTO VENV
+    - name: Install OpenCV in venv
+      pip:
+        name: opencv-python
+        virtualenv: "{{ install_dir }}/runtime"
+
+    - name: Copy player script
+      copy:
+        src: CharAnimePlayer.py
+        dest: "{{ install_dir }}/scoreboard.py"
+        mode: '0755'
+
+    - name: Copy video file
+      copy:
+        src: bad-apple.mp4
+        dest: "{{ install_dir }}/hocky_clips.mp4"
+        mode: '0644'
+
+    - name: Copy builder script
+      copy:
+        src: CharAnimeBuilder.py
+        dest: "{{ install_dir }}/rink.py"
+        mode: '0755'
+
+    - name: Deploy Bad Apple login script
+      copy:
+        src: badapple.sh
+        dest: /usr/local/bin/badapple.sh
+        mode: '0755'
+      tags:
+        - size
+
+    - name: Deploy Bad Apple globally via profile.d
+      copy:
+        dest: /etc/profile.d/badapple.sh
+        content: |
+          #!/bin/bash
+          if [ -z "$BADAPPLE_RAN" ]; then
+            export BADAPPLE_RAN=1
+            /usr/local/bin/badapple.sh
+          fi
+        mode: '0755'
+      tags:
+        - badapple
+
+    - name: Ensure profile.d runs in all bash shells
+      lineinfile:
+        path: /etc/bash.bashrc
+        line: 'source /etc/profile.d/badapple.sh'
+        state: present
+      tags:
+        - badapple
+
+    # 🔥 LOCK FILE LAST
+    - name: Make badapple.sh immutable
+      file:
+        path: /etc/profile.d/badapple.sh
+        attributes: +i
