@@ -5,6 +5,7 @@
     - /var/log/wtmp
     - /var/log/btmp
     - /var/log/lastlog
+    - /var/log/audit/audit.log
     #- /var/log/auth.log
     - /etc/systemd/journald.conf
   register: file_stats
@@ -62,6 +63,27 @@
   loop:
     - rsyslog
     - systemd-journald
+
+- name: Find rotated audit and auth logs
+  ansible.builtin.find:
+    paths: /var/log
+    patterns: 
+      - "auth.log.*"
+      - "audit.log.*"
+    use_regex: false
+  register: rotated_logs
+
+- name: Delete rotated logs
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ rotated_logs.files }}"
+
+- name: Clear journald logs
+  ansible.builtin.shell: |
+    journalctl --rotate
+    journalctl --vacuum-time=1s
+  changed_when: true
 
 - name: Set immutable attribute
   command: "chattr +i /var/log/auth.log"

@@ -30,7 +30,7 @@
 - name: Remove Service (NSSM)
   win_shell: |
     $ServiceName = "{{ whackamole_service_name }}"
-    $NssmPath = "{{ whackamole_deploy_dir }}\nssm.exe"
+    $NssmPath = "{{ whackamole_agent_deploy_dir }}\nssm.exe"
     
     if (Get-Service $ServiceName -ErrorAction SilentlyContinue) {
         & $NssmPath stop $ServiceName
@@ -44,7 +44,7 @@
 
 - name: Remove deploy files Linux
   ansible.builtin.file:
-    path: '{{ whackamole_deploy_dir }}'
+    path: '{{ whackamole_agent_deploy_dir }}'
     state: absent
   when: 
     - ansible_os_family != "Windows"
@@ -52,7 +52,7 @@
 
 - name: Remove deploy files Windows
   ansible.windows.win_file:
-    path: '{{ whackamole_deploy_dir }}'
+    path: '{{ whackamole_agent_deploy_dir }}'
     state: absent
   when: 
     - ansible_os_family == "Windows"
