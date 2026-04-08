@@ -31,10 +31,10 @@ http {
             set $upstream_target http://webserver;
 
             {% for ip in whackamole_allow_ips_web %}
-            allow {{ ip }};
+            #allow {{ ip }};
             {% endfor %}
     
-            deny all;
+            #deny all;
     
             proxy_pass $upstream_target;
             proxy_set_header Host $host;
@@ -47,10 +47,10 @@ http {
             set $upstream_target http://webserver;
 
             {% for ip in whackamole_allow_ips_web %}
-            allow {{ ip }};
+            #allow {{ ip }};
             {% endfor %}
     
-            deny all;
+            #deny all;
     
             proxy_pass $upstream_target;
             proxy_set_header Host $host;
@@ -65,10 +65,10 @@ http {
             set $upstream_target http://webserver;
             
             {% for ip in whackamole_allow_ips_agent %}
-            allow {{ ip }};
+            #allow {{ ip }};
             {% endfor %}
     
-            deny all;
+            #deny all;
     
             proxy_pass $upstream_target;
             proxy_set_header Host $host;
