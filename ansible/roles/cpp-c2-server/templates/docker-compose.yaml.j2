@@ -1,0 +1,63 @@
+# log.txt must be present before running!
+
+services:
+  nginx:
+    image: {{ cppc2_proxy_container }}
+    ports:
+      - target: 443
+        published: {{ cppc2_listen_port }}
+        protocol: tcp
+        mode: host
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./cert.pem:/etc/nginx/cert.pem:ro
+      - ./key.pem:/etc/nginx/key.pem:ro
+    depends_on:
+      - webserver
+    networks:
+      - cppc2_net
+
+  webserver:
+    image: {{ cppc2_python_container }}
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - APP_CONTEXT=SERVER
+    restart: unless-stopped
+    command: ["sh", "-c", "gunicorn --bind 0.0.0.0:80 --workers {{ cppc2_gunicorn_workers }} --worker-tmp-dir /dev/shm server:main"]
+    deploy:
+      replicas: {{ cppc2_webserver_replicas }}
+    networks:
+      - cppc2_net
+    expose:
+      - "80"
+
+  database:
+    image: {{ cppc2_database_image }}
+    restart: always
+    environment:
+      POSTGRES_USER: {{ cppc2_database_creds | split(':') | first }}
+      POSTGRES_PASSWORD: {{ cppc2_database_creds | split(':') | last }}
+      POSTGRES_DB: {{ cppc2_database_db }}
+    #ports:
+    #  - "5432:5432"
+    volumes:
+      #- pgdata:/var/lib/postgresql/data # <v18
+      - pgdata:/var/lib/postgresql # >=v18
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 3s
+      timeout: 2s
+      retries: 5
+    networks:
+      - cppc2_net
+    expose:
+      - "5432"
+
+volumes:
+  pgdata:
+
+networks:
+  cppc2_net:
+    driver: bridge

@@ -3,11 +3,11 @@ apt update
 apt install -y nano git curl python-is-python3 python3 python3-venv python3-pip sshpass pwgen ansible
 git clone https://github.com/akneewhowah/310Infragroup7nyameow/
 chown redteam:redteam -R 310Infragroup7nyameow
-cd ./310Infragroup7nyameow/redteam/ansible
+cd ./310Infragroup7nyameow/ansible
 python -m venv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
 activate-global-python-argcomplete
 ansible-galaxy install -r requirements.yml
 chown redteam:redteam -R .
-echo "Finished. Ansible and venv set up at ./310Infragroup7nyameow/redteam/ansible. Make sure to source venv/bin/activate before running Ansible tasks."
+echo "Finished. Ansible and venv set up at ./310Infragroup7nyameow/ansible. Make sure to source venv/bin/activate before running Ansible tasks."

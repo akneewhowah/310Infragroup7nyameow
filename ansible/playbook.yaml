@@ -30,18 +30,6 @@
 # Linux Infra
 #########################
 
-- name: Deploy Rustdesk Linux
-  hosts: linux:&gui
-  roles:
-    - linux_rustdesk
-  tags:
-    - linux 
-    - inscope 
-    - rustdesk
-    - rustdesk_linux
-    - generic
-    - full
-
 - name: Change Rustdesk Password
   hosts: linux:&gui:&jumpboxes
   roles:
@@ -81,6 +69,37 @@
 # Inscope
 #########################
 
+- name: Deploy whackamole
+  hosts: jumpred1
+  roles:
+    - whackamole
+  tags:
+    - whackamole
+    - andrew
+    - full
+
+- name: Deploy Linux Infra Standards
+  hosts: linux:&jumpred
+  roles:
+    - linux_standards
+  tags:
+    - linux
+    - inscope 
+    - stds
+    - full
+
+- name: Deploy Linux Impairment
+  hosts: linux:&inscope
+  roles:
+    - linux_impairment
+  tags:
+    - linux
+    - inscope 
+    - impairment
+    - impairment_linux
+    - generic
+    - full
+
 - name: Deploy Linux Users
   hosts: linux:&inscope
   roles:
@@ -119,6 +138,60 @@
     - generic
     - full
 
+- name: Deploy Rustdesk Linux
+  hosts: linux:&gui
+  roles:
+    - linux_rustdesk
+  tags:
+    - linux 
+    - inscope 
+    - rustdesk
+    - rustdesk_linux
+    - generic
+    - full
+
+- name: Deploy NGINX Proxy
+  hosts: jumpred_proxy11:jumpred_proxy12:jumpred_proxy13:jumpred_proxy14
+  roles:
+    - linux_nginx_proxy
+  tags:
+    - linux
+    - inscope 
+    - nginx_proxy
+    - full
+
+- name: Deploy Windows Impairment
+  hosts: windows:&inscope
+  roles:
+    - windows_impairment
+  tags:
+    - windows 
+    - inscope 
+    - impairment
+    - impairment_windows
+    - generic
+    - full
+
+- name: Deploy CPP_C2 Server
+  hosts: jumpred_proxy1
+  roles:
+    - cpp-c2-server
+  tags:
+    - linux
+    - cpp
+    - cpp_server
+    - full
+
+- name: Deploy CPP_C2 Client
+  hosts: windows:&inscope
+  roles:
+    - cpp-c2-client
+  tags:
+    - windows
+    - cpp
+    - cpp_client
+    - full
+
 - name: Deploy Rustdesk Windows
   hosts: windows:&gui
   roles:
@@ -131,8 +204,19 @@
     - generic
     - full
 
+- name: Deploy Linux Apache2
+  hosts: linux:&inscope
+  roles:
+    - linux_apache2
+  tags:
+    - linux
+    - inscope 
+    - apache2
+    - generic
+    - full
+
 - name: Andrew - Deploy pyc2 Server
-  hosts: all
+  hosts: jumpred1
   roles:
     - andrew_pyc2_server
   tags:
@@ -161,55 +245,46 @@
     - whackamole_client
     - full
 
-- name: Eleanor - Deploy skeletonkey
-  hosts: linux
-  roles:
-    - skeletonkey
-  tags:
-    - skeletonkey
-    - eleanor
+#- name: Eleanor - Deploy skeletonkey
+#  hosts: linux
+#  roles:
+#    - skeletonkey
+#  tags:
+#    - skeletonkey
+#    - eleanor
+#
+#- name: Eleanor - Deploy trivia night
+#  hosts: linux
+#  roles:
+#    - trivia_night
+#  tags:
+#    - trivia_night
+#    - eleanor
 
-- name: Eleanor - Deploy trivia night
-  hosts: linux
-  roles:
-    - trivia_night
-  tags:
-    - trivia_night
-    - eleanor
-
-#- name: Deploy Birdsnest
-#  hosts: all
+#- name: Deploy paperking
+#  hosts: inscope
 #  roles:
-#    - birdsnest
+#    - paperking
 #  tags:
-#    - birdsnest
+#    - paperking
 #    - andrew
 #    - full
 #
-#- name: Deploy Magpie
+#- name: Deploy rockband
 #  hosts: inscope
 #  roles:
-#    - birdsnest-magpie
+#    - rockband
 #  tags:
-#    - magpie
+#    - rockband
 #    - andrew
 #    - full
 #
-#- name: Deploy Owlet
+#- name: Deploy honcho
 #  hosts: inscope
 #  roles:
-#    - birdsnest-owlet
+#    - honcho
 #  tags:
-#    - owlet
-#    - andrew
-#    - full
-#
-#- name: Deploy Kingfisher
-#  hosts: inscope
-#  roles:
-#    - birdsnest-kingfisher
-#  tags:
-#    - kingfisher
+#    - honcho
 #    - andrew
 #    - full
 
@@ -236,6 +311,7 @@
   tags:
     - linux
     - history
+    - generic
     - full
 
 - name: Remove Windows history
@@ -245,6 +321,7 @@
   tags:
     - windows
     - history
+    - generic
     - full
 
 - name: Reboot Linux

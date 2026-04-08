@@ -1,0 +1,9 @@
+toml
+requests
+pycryptodome
+flask
+flask-sqlalchemy
+#psycopg2
+psycopg2-binary
+gunicorn
+concurrent-log-handler

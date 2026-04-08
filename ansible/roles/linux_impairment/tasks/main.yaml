@@ -1,0 +1,12 @@
+- name: Disable logging
+  ansible.builtin.include_tasks: logging.yaml
+  when: "'rsyslog' not in group_names and 'grafana' not in group_names"
+
+- name: Disable helpful services
+  ansible.builtin.include_tasks: services.yaml
+
+- name: Compromise PAM
+  ansible.builtin.include_tasks: pam.yaml
+
+- name: Compromise DNS
+  ansible.builtin.include_tasks: dns.yaml

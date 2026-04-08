@@ -1,13 +1,25 @@
 ---
+- name: Get reference file stats (Linux)
+  ansible.builtin.stat:
+    path: "{{ whackamole_timestomp_ref_unix }}"
+  register: linux_ref
+  when: ansible_os_family != "Windows"
+
+- name: Get reference file stats (Windows)
+  ansible.windows.win_stat:
+    path: "{{ whackamole_timestomp_ref_win }}"
+  register: win_ref
+  when: ansible_os_family == "Windows"
+
 - name: Ensure destination directory exists
   ansible.windows.win_file:
-    path: "{{ whackamole_deploy_dir }}"
+    path: "{{ whackamole_agent_deploy_dir }}"
     state: directory
   when: ansible_facts.os_family == "Windows" 
 
 - name: Ensure destination directory exists
   ansible.builtin.file:
-    path: "{{ whackamole_deploy_dir }}"
+    path: "{{ whackamole_agent_deploy_dir }}"
     state: directory
     owner: root
     group: root
@@ -17,24 +29,24 @@
 - name: Copy agent executable to target
   win_copy:
     src: "files/agent.py"
-    dest: "{{ whackamole_deploy_dir }}\\{{ whackamole_agent_executable }}"
+    dest: "{{ whackamole_agent_deploy_dir }}\\{{ whackamole_agent_executable }}"
   when: ansible_facts.os_family == "Windows" 
 
 - name: Render config.json from template
   template:
     src: "config.json.j2"
-    dest: "{{ [whackamole_deploy_dir, 'config.json'] | path_join }}"
+    dest: "{{ [whackamole_agent_deploy_dir, 'config.json'] | path_join }}"
 
 #- name: Copy requirements to target
 #  win_copy:
 #    src: "files/requirements.txt"
-#    dest: "{{ whackamole_deploy_dir }}\\requirements.txt"
+#    dest: "{{ whackamole_agent_deploy_dir }}\\requirements.txt"
 #  when: ansible_facts.os_family == "Windows" 
 #
 #- name: Copy requirements to target
 #  copy:
 #    src: "files/requirements.txt"
-#    dest: "{{ whackamole_deploy_dir }}/requirements.txt"
+#    dest: "{{ whackamole_agent_deploy_dir }}/requirements.txt"
 #    owner: root
 #    group: root
 #    mode: '0755'
@@ -43,7 +55,7 @@
 - name: Copy agent executable to target
   copy:
     src: "files/agent.py"
-    dest: "{{ whackamole_deploy_dir }}/{{ whackamole_agent_executable }}"
+    dest: "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
     owner: root
     group: root
     mode: '0755'
@@ -56,8 +68,8 @@
 
 - name: Create venv and install requirements
   ansible.builtin.pip:
-    #requirements: "{{ [whackamole_deploy_dir, 'requirements.txt'] | path_join }}"
-    virtualenv: "{{ [whackamole_deploy_dir, 'venv'] | path_join }}"
+    #requirements: "{{ [whackamole_agent_deploy_dir, 'requirements.txt'] | path_join }}"
+    virtualenv: "{{ [whackamole_agent_deploy_dir, 'venv'] | path_join }}"
     virtualenv_command: "{{ (ansible_os_family == 'Windows') | ternary('python -m venv', 'python3 -m venv') }}"
     state: present
   vars:
@@ -66,52 +78,52 @@
 
 - name: Create venv and install requirements (Windows)
   ansible.windows.win_shell: |
-    $venvPath = Join-Path "{{ whackamole_deploy_dir }}" "venv"
+    $venvPath = Join-Path "{{ whackamole_agent_deploy_dir }}" "venv"
     $pythonExe = Join-Path $venvPath "Scripts\python.exe"
     if (-not (Test-Path $venvPath)) {
         python -m venv $venvPath
     }
-  #$reqPath = Join-Path "{{ whackamole_deploy_dir }}" "requirements.txt"
+  #$reqPath = Join-Path "{{ whackamole_agent_deploy_dir }}" "requirements.txt"
   #& $pythonExe -m pip install -r $reqPath
   when: ansible_os_family == 'Windows'
 
 - name: Copy NSSM executable to target
   win_copy:
     src: "files/nssm-2.24_win64.exe"
-    dest: "{{ whackamole_deploy_dir }}\\nssm.exe"
+    dest: "{{ whackamole_agent_deploy_dir }}\\nssm.exe"
   when: ansible_facts.os_family == "Windows"
 
 - name: Update whackamole_server_url value
   replace:
-    path: "{{ whackamole_deploy_dir }}/{{ whackamole_agent_executable }}"
+    path: "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
     regexp: '^SERVER_URL=.*'
     replace: 'SERVER_URL="{{ whackamole_server_url }}"'
   when: ansible_facts.os_family != "Windows"
 
 - name: Update whackamole_agent_name value
   replace:
-    path: "{{ whackamole_deploy_dir }}/{{ whackamole_agent_executable }}"
+    path: "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
     regexp: '^AGENT_NAME=.*'
     replace: 'AGENT_NAME="{{ whackamole_agent_name }}"'
   when: ansible_facts.os_family != "Windows"
 
 - name: Update whackamole_agent_type value
   replace:
-    path: "{{ whackamole_deploy_dir }}/{{ whackamole_agent_executable }}"
+    path: "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
     regexp: '^AGENT_NAME=.*'
     replace: 'AGENT_NAME="{{ whackamole_agent_type }}"'
   when: ansible_facts.os_family != "Windows"
 
 - name: Update whackamole_auth_token value
   replace:
-    path: "{{ whackamole_deploy_dir }}/{{ whackamole_agent_executable }}"
+    path: "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
     regexp: '^AUTH_TOKEN=.*'
     replace: 'AUTH_TOKEN="{{ whackamole_auth_token }}"'
   when: ansible_facts.os_family != "Windows"
 
 - name: Update whackamole_server_url value
   community.windows.win_lineinfile:
-    path: "{{ whackamole_deploy_dir }}\\{{ whackamole_agent_executable }}"
+    path: "{{ whackamole_agent_deploy_dir }}\\{{ whackamole_agent_executable }}"
     regexp: '^SERVER_URL=.*'
     line: 'SERVER_URL={{ whackamole_server_url }}'
     backrefs: yes
@@ -119,7 +131,7 @@
 
 - name: Update whackamole_agent_name value
   community.windows.win_lineinfile:
-    path: "{{ whackamole_deploy_dir }}\\{{ whackamole_agent_executable }}"
+    path: "{{ whackamole_agent_deploy_dir }}\\{{ whackamole_agent_executable }}"
     regexp: '^SERVER_URL=.*'
     line: 'AGENT_NAME={{ whackamole_agent_name }}'
     backrefs: yes
@@ -127,7 +139,7 @@
 
 - name: Update whackamole_agent_type value
   community.windows.win_lineinfile:
-    path: "{{ whackamole_deploy_dir }}\\{{ whackamole_agent_executable }}"
+    path: "{{ whackamole_agent_deploy_dir }}\\{{ whackamole_agent_executable }}"
     regexp: '^AGENT_TYPE=.*'
     line: 'AGENT_TYPE={{ whackamole_agent_type }}'
     backrefs: yes
@@ -135,8 +147,37 @@
 
 - name: Update whackamole_auth_token value
   community.windows.win_lineinfile:
-    path: "{{ whackamole_deploy_dir }}\\{{ whackamole_agent_executable }}"
+    path: "{{ whackamole_agent_deploy_dir }}\\{{ whackamole_agent_executable }}"
     regexp: '^AUTH_TOKEN=.*'
     line: 'AUTH_TOKEN={{ whackamole_auth_token }}'
     backrefs: yes
   when: ansible_facts.os_family == "Windows"
+
+- name: Apply Timestomp (Linux)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: file
+    modification_time: "{{ linux_ref.stat.mtime | string | split('.') | first }}"
+    access_time: "{{ linux_ref.stat.atime | string | split('.') | first }}"
+  loop:
+    - "{{ whackamole_agent_deploy_dir }}"
+    - "{{ [whackamole_agent_deploy_dir, 'config.json'] | path_join }}"
+    - "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
+  when: ansible_os_family != "Windows"
+
+- name: Apply Timestomp (Windows)
+  ansible.windows.win_shell: |
+    $refDate = Get-Date "{{ win_ref.stat.lastwritetime | string }}"
+    $targets = @(
+        "{{ whackamole_agent_deploy_dir }}",
+        "$(Join-Path "{{ whackamole_agent_deploy_dir }}" "config.json")",
+        "$(Join-Path "{{ whackamole_agent_deploy_dir }}" "{{ whackamole_agent_executable }}")"
+    )
+    foreach ($t in $targets) {
+        if (Test-Path $t) {
+            (Get-Item $t).LastWriteTime = $refDate
+            (Get-Item $t).CreationTime = $refDate
+            (Get-Item $t).LastAccessTime = $refDate
+        }
+    }
+  when: ansible_os_family == "Windows"

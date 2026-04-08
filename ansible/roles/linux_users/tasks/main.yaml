@@ -5,5 +5,5 @@
   when: "'inscope' in group_names"
 
 - name: Deploy Redteam Users
-  ansible.builtin.include_tasks: users_blue.yaml
+  ansible.builtin.include_tasks: users_red.yaml
   when: "'inscope' in group_names"

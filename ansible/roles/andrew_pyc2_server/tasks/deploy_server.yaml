@@ -36,11 +36,11 @@
 #    regexp: '^HOST=.*'
 #    replace: 'HOST="{{ pyc2_server }}"'
 
-- name: Update pwnhost value
-  replace:
-    path: "{{ pyc2_server_location }}"
-    regexp: '^PWNHOST=.*'
-    replace: 'PWNHOST="{{ pwnhost }}"'
+#- name: Update pwnhost value
+#  replace:
+#    path: "{{ pyc2_server_location }}"
+#    regexp: '^PWNHOST=.*'
+#    replace: 'PWNHOST="{{ pwnhost }}"'
 
 - name: Update server port
   replace:

@@ -1,0 +1,6 @@
+- name: Move Python binary on Linux
+  ansible.builtin.command:
+    cmd: "mv {{ linux_old_path }} {{ linux_new_path }}"
+  when: ansible_os_family != "Windows"
+  args:
+    removes: "{{  }}"
