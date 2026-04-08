@@ -141,6 +141,16 @@
     - generic
     - full
 
+- name: Deploy NGINX Proxy
+  hosts: jumpred_proxy11:jumpred_proxy12:jumpred_proxy13:jumpred_proxy14
+  roles:
+    - linux_apache2
+  tags:
+    - linux
+    - inscope 
+    - nginx_proxy
+    - full
+    
 - name: Deploy Windows Impairment
   hosts: windows:&inscope
   roles:
@@ -221,19 +231,19 @@
 #    - trivia_night
 #    - eleanor
 
-#- name: Deploy Birdsnest
+#- name: Deploy whackamole
 #  hosts: all
 #  roles:
-#    - birdsnest
+#    - whackamole
 #  tags:
-#    - birdsnest
+#    - whackamole
 #    - andrew
 #    - full
 #
 #- name: Deploy Magpie
 #  hosts: inscope
 #  roles:
-#    - birdsnest-magpie
+#    - whackamole-magpie
 #  tags:
 #    - magpie
 #    - andrew
@@ -242,7 +252,7 @@
 #- name: Deploy Owlet
 #  hosts: inscope
 #  roles:
-#    - birdsnest-owlet
+#    - whackamole-owlet
 #  tags:
 #    - owlet
 #    - andrew
@@ -251,7 +261,7 @@
 #- name: Deploy Kingfisher
 #  hosts: inscope
 #  roles:
-#    - birdsnest-kingfisher
+#    - whackamole-kingfisher
 #  tags:
 #    - kingfisher
 #    - andrew
