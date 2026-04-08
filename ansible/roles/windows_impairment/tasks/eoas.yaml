@@ -50,6 +50,7 @@
     $mTimeUnix = {{ file_info.stat.lastwritetime }}
     $aTimeUnix = {{ file_info.stat.lastaccesstime }}
 
+    # Function to convert Unix to DateTime
     function Convert-UnixToDate($unix) {
         return [DateTimeOffset]::FromUnixTimeSeconds([int]$unix).DateTime
     }
@@ -58,27 +59,21 @@
     $mDate = Convert-UnixToDate $mTimeUnix
     $aDate = Convert-UnixToDate $aTimeUnix
 
-    # 1. Force the OS to release any lingering handles
-    [System.GC]::Collect()
-    [System.GC]::WaitForPendingFinalizers()
-    Start-Sleep -Seconds 1
+    # Apply to Target
+    (Get-Item $targetPath).CreationTime = $cDate
+    (Get-Item $targetPath).LastWriteTime = $mDate
+    (Get-Item $targetPath).LastAccessTime = $aDate
 
-    # 2. Apply to Target
-    $targetFile = Get-Item $targetPath
-    $targetFile.CreationTime = $cDate
-    $targetFile.LastWriteTime = $mDate
-    $targetFile.LastAccessTime = $aDate
-
-    # 3. Apply to Backup
+    # Apply to Backup
     if (Test-Path $backupPath) {
-        $backupFile = Get-Item $backupPath
-        $backupFile.CreationTime = $cDate
-        $backupFile.LastWriteTime = $mDate
-        $backupFile.LastAccessTime = $aDate
+        (Get-Item $backupPath).CreationTime = $cDate
+        (Get-Item $backupPath).LastWriteTime = $mDate
+        (Get-Item $backupPath).LastAccessTime = $aDate
     }
   become: yes
   become_method: runas
   become_user: System
+  ignore_errors: true # may be in use
 
 - name: "Apply IFEO Registry Redundancy for {{ target }}"
   ansible.windows.win_regedit:
