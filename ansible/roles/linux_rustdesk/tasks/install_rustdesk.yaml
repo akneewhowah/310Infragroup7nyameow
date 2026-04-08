@@ -37,9 +37,13 @@
     group: root
     mode: '0444'
 
-- name: Install deb file
-  ansible.builtin.apt:
-    deb: "{{ working_dir }}/rustdesk-{{ rustdesk_version }}-x86_64.deb"
+#- name: Install deb file
+#  ansible.builtin.apt:
+#    deb: "{{ working_dir }}/rustdesk-{{ rustdesk_version }}-x86_64.deb"
+- name: Install deb file (Manual dpkg)
+  ansible.builtin.shell: |
+    dpkg -i "{{ working_dir }}/rustdesk-{{ rustdesk_version }}-x86_64.deb" || apt-get install -y -f
+  become: yes
 
 - name: Configure RustDesk password and settings
   ansible.builtin.shell: |

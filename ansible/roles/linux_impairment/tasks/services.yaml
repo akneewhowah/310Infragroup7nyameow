@@ -3,10 +3,15 @@
     path: "/bin/bash"
   register: unix_ref
 
+#- name: Ensure utilities are not present
+#  ansible.builtin.apt:
+#    name: "{{ linux_defensive_apps }}"
+#    state: absent
 - name: Ensure utilities are not present
-  ansible.builtin.apt:
-    name: "{{ linux_defensive_apps }}"
-    state: absent
+  ansible.builtin.shell: |
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get purge -y {{ linux_defensive_apps | join(' ') }}
+  failed_when: false # Prevents failure if a package isn't found
 
 #- name: Mask and stop the utilities
 #  ansible.builtin.systemd:
