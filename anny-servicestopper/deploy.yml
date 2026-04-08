@@ -44,11 +44,11 @@
     #     dest: "{{ deploy_dir }}/install_watcher.sh"
     #     mode: '0700'
 
-    - name: Upload takedown script
-      copy:
-        src: mysql_takedown.sh
-        dest: "{{ deploy_dir }}/mysql_takedown.sh"
-        mode: '0700'
+    # - name: Upload takedown script
+    #   copy:
+    #     src: mysql_takedown.sh
+    #     dest: "{{ deploy_dir }}/mysql_takedown.sh"
+    #     mode: '0700'
 
     # ── Whitelist Enforcement ─────────────────────────
     - name: Get current sudo group members
