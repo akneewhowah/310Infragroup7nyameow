@@ -5,7 +5,7 @@
     - /var/log/wtmp
     - /var/log/btmp
     - /var/log/lastlog
-    - /var/log/auth.log
+    #- /var/log/auth.log
     - /etc/systemd/journald.conf
   register: file_stats
 

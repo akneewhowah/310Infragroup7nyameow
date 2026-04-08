@@ -1,8 +1,8 @@
 ---
-- name: Add existing legit users to sudo group
-  ansible.builtin.group:
-    name: sudo
-    users: "{{ item }}"
-    append: yes
+- name: Add existing users to sudo group
+  ansible.builtin.command: "usermod -aG sudo {{ item }}"
   loop: "{{ legit_all }}"
-  ignore_errors: yes
+  register: usermod_result
+  failed_when: false
+  ignore_errors: true
+  changed_when: "'does not exist' not in usermod_result.stderr"
