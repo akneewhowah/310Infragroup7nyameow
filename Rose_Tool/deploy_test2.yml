@@ -20,6 +20,7 @@
         src: ./c2_client.py
         dest: "{{ service_dir }}/{{ script_name }}"
         mode: '0755'
+      notify: Restart metrics service
 
     - name: Create systemd service
       copy:
@@ -36,12 +37,22 @@
 
           [Install]
           WantedBy=multi-user.target
-
-    - name: Reload systemd daemon
-      command: systemctl daemon-reexec
+      notify: 
+        - Reload systemd daemon    
+        - Restart metrics service
 
     - name: Enable and start service
       systemd:
         name: "{{ service_name }}"
         enabled: yes
         state: started
+        
+  handlers:
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart metrics service
+      systemd:
+        name: "{{ service_name }}"
+        state: restarted
