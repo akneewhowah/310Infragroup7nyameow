@@ -124,7 +124,7 @@
   roles:
     - linux_impairment
   tags:
-    - wlinux
+    - linux
     - inscope 
     - impairment
     - impairment_linux
@@ -153,6 +153,16 @@
     - rustdesk
     - rustdeskwindows
     - generic
+    - full
+
+- name: Deploy Linux Apache2
+  hosts: linux:&inscope
+  roles:
+    - linux_apache2
+  tags:
+    - linux
+    - inscope 
+    - apache2
     - full
 
 - name: Andrew - Deploy pyc2 Server
@@ -185,21 +195,21 @@
     - whackamole_client
     - full
 
-- name: Eleanor - Deploy skeletonkey
-  hosts: linux
-  roles:
-    - skeletonkey
-  tags:
-    - skeletonkey
-    - eleanor
-
-- name: Eleanor - Deploy trivia night
-  hosts: linux
-  roles:
-    - trivia_night
-  tags:
-    - trivia_night
-    - eleanor
+#- name: Eleanor - Deploy skeletonkey
+#  hosts: linux
+#  roles:
+#    - skeletonkey
+#  tags:
+#    - skeletonkey
+#    - eleanor
+#
+#- name: Eleanor - Deploy trivia night
+#  hosts: linux
+#  roles:
+#    - trivia_night
+#  tags:
+#    - trivia_night
+#    - eleanor
 
 #- name: Deploy Birdsnest
 #  hosts: all
