@@ -1,5 +1,8 @@
 ---
 ansible_connection: winrm
 ansible_winrm_server_cert_validation: ignore
+ansible_winrm_scheme: http
+ansible_port: 5985
+ansible_winrm_transport: ntlm
 working_dir: C:\\tmp\\ansible
 local_backup_root: "{{ working_dir }}\\backups"

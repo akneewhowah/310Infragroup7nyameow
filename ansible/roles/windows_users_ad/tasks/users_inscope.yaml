@@ -13,9 +13,9 @@
     valid_domain_users: "{{ ad_user_check.results | selectattr('objects', 'defined') | selectattr('objects', 'ne', []) | map(attribute='item') | list }}"
 
 - name: Assign domain admin group memberships
-  microsoft.ad.group:
+  microsoft.ad.group_membership:
     name: "{{ item }}"
-    members: 
+    members:
       add: "{{ valid_domain_users }}"
     state: present
     domain_username: "{{ ansible_user }}"
