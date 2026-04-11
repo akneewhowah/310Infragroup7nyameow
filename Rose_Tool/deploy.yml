@@ -31,7 +31,7 @@
           After=network.target
 
           [Service]
-          ExecStart=/usr/bin/python3 {{ service_dir }}/{{ script_name }} https://10.100.1.56:8000/ plaintext_really
+          ExecStart=/usr/bin/python3 {{ service_dir }}/{{ script_name }} https://192.168.10.11:443/ plaintext_really
           Restart=always
           RestartSec=5
 
