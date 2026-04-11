@@ -534,7 +534,7 @@ def main():
         # (Optional) check if agent should be in paused state
         send_message("agent/get_pause", stealth_mode=STEALTH_MODE)
         if status:
-            desired_pause_until = response
+            desired_pause_until = float(response)
             if desired_pause_until > time.time():
                 time.sleep(desired_pause_until - time.time())
         
