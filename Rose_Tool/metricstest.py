@@ -3,6 +3,8 @@ import os, sys, json, base64, time, random, urllib, subprocess, platform, socket
 from urllib.parse import urlencode
 
 import platform, os, re, ctypes, getpass, socket, json, urllib, ssl, time
+import urllib.request
+import urllib.error
 
 SERVER_URL="https://192.168.10.11:443/"
 AGENT_NAME="example1"
