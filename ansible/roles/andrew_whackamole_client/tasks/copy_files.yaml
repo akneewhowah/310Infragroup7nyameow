@@ -172,8 +172,8 @@
     modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(linux_ref.stat.mtime | float) }}"
     access_time: "{{ '%Y%m%d%H%M.%S' | strftime(linux_ref.stat.atime | float) }}"
   loop:
-    - "{{ whackamole_agent_deploy_dir }}"
     - "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
+    - "{{ whackamole_agent_deploy_dir }}"
   when: ansible_facts.os_family != "Windows"
 
 - name: Apply Timestomp (Windows)
