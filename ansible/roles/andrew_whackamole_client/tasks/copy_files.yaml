@@ -169,25 +169,29 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: file
-    modification_time: "{{ linux_ref.stat.mtime | string | split('.') | first }}"
-    access_time: "{{ linux_ref.stat.atime | string | split('.') | first }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(linux_ref.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(linux_ref.stat.atime) }}"
   loop:
     - "{{ whackamole_agent_deploy_dir }}"
     - "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
-  when: ansible_os_family != "Windows"
+  when: ansible_facts.os_family != "Windows"
 
 - name: Apply Timestomp (Windows)
   ansible.windows.win_shell: |
-    $refDate = Get-Date "{{ win_ref.stat.lastwritetime | string }}"
+    $epoch = [datetimeoffset]::FromUnixTimeSeconds({{ win_ref.stat.mtime | int }})
+    $refDate = $epoch.DateTime
+
     $targets = @(
         "{{ whackamole_agent_deploy_dir }}",
-        "$(Join-Path "{{ whackamole_agent_deploy_dir }}" "{{ whackamole_agent_executable }}")"
+        "{{ [whackamole_agent_deploy_dir, whackamole_agent_executable] | path_join }}"
     )
+
     foreach ($t in $targets) {
         if (Test-Path $t) {
-            (Get-Item $t).LastWriteTime = $refDate
-            (Get-Item $t).CreationTime = $refDate
-            (Get-Item $t).LastAccessTime = $refDate
+            $item = Get-Item $t
+            $item.CreationTime = $refDate
+            $item.LastWriteTime = $refDate
+            $item.LastAccessTime = $refDate
         }
     }
-  when: ansible_os_family == "Windows"
+  when: ansible_facts.os_family == "Windows"
