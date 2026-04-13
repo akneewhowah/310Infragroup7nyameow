@@ -1,4 +1,6 @@
 all:
+  vars:
+    wazuh_manager_ip: 192.168.10.100
   children:
     iis:
       hosts:

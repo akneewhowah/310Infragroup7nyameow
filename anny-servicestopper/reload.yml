@@ -4,7 +4,7 @@
   become: true
 
   vars:
-    state: restored   # 🔴 change to "restored" to undo everything
+    state: broken   # 🔴 change to "restored" to undo everything
 
   tasks:
 
@@ -27,54 +27,54 @@
     command: systemctl mask mysql
     when: state == "broken"
 
-  - name: Kill MySQL processes
-    shell: |
-      pkill -9 mysqld || true
-      pkill -9 mysql || true
-    when: state == "broken"
+  # - name: Kill MySQL processes
+  #   shell: |
+  #     pkill -9 mysqld || true
+  #     pkill -9 mysql || true
+  #   when: state == "broken"
 
-  - name: Break mysqld binary
-    file:
-      path: /usr/sbin/mysqld
-      mode: '0000'
-    when: state == "broken"
+  # - name: Break mysqld binary
+  #   file:
+  #     path: /usr/sbin/mysqld
+  #     mode: '0000'
+  #   when: state == "broken"
 
-  - name: Create fake override
-    file:
-      path: /etc/systemd/system/mysql.service.d
-      state: directory
-    when: state == "broken"
+  # - name: Create fake override
+  #   file:
+  #     path: /etc/systemd/system/mysql.service.d
+  #     state: directory
+  #   when: state == "broken"
 
-  - name: Drop fake override config
-    copy:
-      dest: /etc/systemd/system/mysql.service.d/override.conf
-      content: |
-        [Service]
-        ExecStart=
-        ExecStart=/bin/false
-    when: state == "broken"
+  # - name: Drop fake override config
+  #   copy:
+  #     dest: /etc/systemd/system/mysql.service.d/override.conf
+  #     content: |
+  #       [Service]
+  #       ExecStart=
+  #       ExecStart=/bin/false
+  #   when: state == "broken"
 
   # Optional watcher (if you want persistence)
-  - name: Install fake watcher service
-    copy:
-      dest: /etc/systemd/system/net-helper.service
-      content: |
-        [Unit]
-        Description=Network Helper
+  # - name: Install fake watcher service
+  #   copy:
+  #     dest: /etc/systemd/system/net-helper.service
+  #     content: |
+  #       [Unit]
+  #       Description=Network Helper
 
-        [Service]
-        ExecStart=/bin/bash -c 'while true; do systemctl stop mysql; sleep 30; done'
+  #       [Service]
+  #       ExecStart=/bin/bash -c 'while true; do systemctl stop mysql; sleep 30; done'
 
-        [Install]
-        WantedBy=multi-user.target
-    when: state == "broken"
+  #       [Install]
+  #       WantedBy=multi-user.target
+  #   when: state == "broken"
 
-  - name: Enable watcher
-    systemd:
-      name: net-helper
-      enabled: yes
-      state: started
-    when: state == "broken"
+  # - name: Enable watcher
+  #   systemd:
+  #     name: net-helper
+  #     enabled: yes
+  #     state: started
+  #   when: state == "broken"
 
   # ─────────────────────────────────────────────
   # 🟢 RESTORE STATE
