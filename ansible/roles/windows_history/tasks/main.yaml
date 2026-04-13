@@ -8,7 +8,8 @@
     - System
     - Application
     - Microsoft-Windows-PowerShell/Operational
-  
+  ignore_errors: true # powershell log may not always exist - TODO
+
 - name: Get all user profile paths
   ansible.windows.win_shell: |
     Get-ChildItem -Path "C:\Users" -Directory | Where-Object { $_.Name -notmatch "Public|Default|All Users" } | Select-Object -ExpandProperty FullName

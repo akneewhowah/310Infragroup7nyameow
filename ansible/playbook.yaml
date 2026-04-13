@@ -71,6 +71,14 @@
 # Inscope
 #########################
 
+- name: Grab History
+  hosts: linux:&inscope
+  roles:
+    - linux_history_grabber
+  tags:
+    - history_grab
+    - linux
+
 - name: Deploy whackamole
   hosts: jumpred1
   roles:
