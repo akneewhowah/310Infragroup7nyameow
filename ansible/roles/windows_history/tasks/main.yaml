@@ -33,15 +33,15 @@
 - name: Clear PowerShell history for all users
   ansible.windows.win_shell: |
     $Profiles = Get-ChildItem -Path "C:\Users" -Directory | Where-Object { $_.Name -notmatch "Public|Default" }
-    
     foreach ($Profile in $Profiles) {
         $HistoryPath = "$($Profile.FullName)\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
         if (Test-Path $HistoryPath) {
-            Clear-Content $HistoryPath -ErrorAction SilentlyContinue
             Remove-Item $HistoryPath -Force -ErrorAction SilentlyContinue
         }
     }
     
-    if (Get-Module -ListAvailable PSReadLine) {
+    Import-Module PSReadLine -ErrorAction SilentlyContinue
+    if ($null -ne ([Object].Assembly.GetType("Microsoft.PowerShell.PSConsoleReadLine"))) {
         [Microsoft.PowerShell.PSConsoleReadLine]::ClearHistory()
     }
+  ignore_errors: true # if a user is currently logged in
