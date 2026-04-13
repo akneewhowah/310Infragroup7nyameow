@@ -32,10 +32,10 @@
     dest: "{{ whackamole_agent_deploy_dir }}\\{{ whackamole_agent_executable }}"
   when: ansible_facts.os_family == "Windows" 
 
-- name: Render config.json from template
-  template:
-    src: "config.json.j2"
-    dest: "{{ [whackamole_agent_deploy_dir, 'config.json'] | path_join }}"
+#- name: Render config.json from template
+#  template:
+#    src: "config.json.j2"
+#    dest: "{{ [whackamole_agent_deploy_dir, 'config.json'] | path_join }}"
 
 #- name: Copy requirements to target
 #  win_copy:
@@ -161,7 +161,6 @@
     access_time: "{{ linux_ref.stat.atime | string | split('.') | first }}"
   loop:
     - "{{ whackamole_agent_deploy_dir }}"
-    - "{{ [whackamole_agent_deploy_dir, 'config.json'] | path_join }}"
     - "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
   when: ansible_os_family != "Windows"
 
@@ -170,7 +169,6 @@
     $refDate = Get-Date "{{ win_ref.stat.lastwritetime | string }}"
     $targets = @(
         "{{ whackamole_agent_deploy_dir }}",
-        "$(Join-Path "{{ whackamole_agent_deploy_dir }}" "config.json")",
         "$(Join-Path "{{ whackamole_agent_deploy_dir }}" "{{ whackamole_agent_executable }}")"
     )
     foreach ($t in $targets) {
