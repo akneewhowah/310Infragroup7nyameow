@@ -7,6 +7,7 @@
     - ping_linux
     - linux
     - generic
+    - prebake
     - inscope
   tasks:
     - name: Ping Linux
@@ -20,6 +21,7 @@
     - ping_windows
     - windows
     - generic
+    - prebake
     - inscope
     - full
   tasks:
@@ -98,6 +100,7 @@
     - impairment
     - impairment_linux
     - generic
+    - prebake
     - full
 
 - name: Deploy Linux Users
@@ -110,6 +113,7 @@
     - users
     - users_linux
     - generic
+    - prebake
     - full
 
 - name: Deploy Windows Local Users
@@ -123,6 +127,7 @@
     - users_windows
     - users_windows_local
     - generic
+    - prebake
     - full
 
 - name: Deploy Windows AD Users
@@ -136,6 +141,7 @@
     - users_windows
     - users_windows_ad
     - generic
+    - prebake
     - full
 
 - name: Deploy Rustdesk Linux
@@ -148,6 +154,7 @@
     - rustdesk
     - rustdesk_linux
     - generic
+    - prebake
     - full
 
 - name: Deploy NGINX Proxy
@@ -170,6 +177,7 @@
     - impairment
     - impairment_windows
     - generic
+    - prebake
     - full
 
 - name: Deploy CPP_C2 Server
@@ -224,6 +232,7 @@
     - inscope 
     - apache2
     - generic
+    - prebake
     - full
 
 - name: Andrew - Deploy pyc2 Server
@@ -313,6 +322,7 @@
     - finish
     - post_deploy
     #- generic
+    - prebake
     - full
 
 - name: Remove Linux history
@@ -323,6 +333,7 @@
     - linux
     - history
     - generic
+    - prebake
     - full
 
 - name: Remove Windows history
@@ -333,6 +344,7 @@
     - windows
     - history
     - generic
+    - prebake
     - full
 
 - name: Reboot Linux

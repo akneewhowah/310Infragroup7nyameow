@@ -77,6 +77,8 @@ all:
         blue1-dump-n-chase:
         blue1-snapshot:
         blue1-bardown:
+      vars:
+        wazuh_manager_ip: 10.100.1.100
 
     team2:
       hosts:
@@ -89,6 +91,16 @@ all:
         blue2-dump-n-chase:
         blue2-snapshot:
         blue2-bardown:
+      vars:
+        wazuh_manager_ip: 10.100.1.200
+    
+    day2_prebake:
+      hosts:
+        blue1-dump-n-chase:
+        blue2-dump-n-chase:
+        blue2-bardown:
+        blue2-clapper:
+        blue2-backcheck:
   
     proxy_central:
       #hosts:
