@@ -4,7 +4,7 @@
   become: true
 
   vars:
-    state: broken   # 🔴 change to "restored" to undo everything
+    state: restored   # 🔴 change to "restored" to undo everything
 
   tasks:
 
