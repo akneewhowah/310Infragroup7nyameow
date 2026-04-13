@@ -32,6 +32,7 @@
     > /var/log/lastlog
     > /var/log/audit/audit.log
   changed_when: true
+  ignore_errors: true #auditd may not exist
 
 - name: Find rotated audit and auth logs
   ansible.builtin.find:
