@@ -169,8 +169,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     #state: file
-    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(linux_ref.stat.mtime) }}"
-    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(linux_ref.stat.atime) }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(linux_ref.stat.mtime | float) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(linux_ref.stat.atime | float) }}"
   loop:
     - "{{ whackamole_agent_deploy_dir }}"
     - "{{ whackamole_agent_deploy_dir }}/{{ whackamole_agent_executable }}"
