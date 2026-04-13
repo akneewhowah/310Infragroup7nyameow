@@ -21,6 +21,7 @@ communicate with the server.
 """
 
 import platform, os, re, ctypes, getpass, socket, json, urllib, ssl, time
+import urllib.request, urllib.error
 
 SERVER_URL="https://127.0.0.1:8000/"
 AGENT_NAME="example1"

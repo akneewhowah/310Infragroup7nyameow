@@ -14,6 +14,7 @@ lock = threading.Lock()
 #####################
 
 import json, urllib, ssl
+import urllib.request, urllib.error
 
 SERVER_URL="https://127.0.0.1:8000/"
 AGENT_TYPE="matt_c2"

@@ -8,6 +8,7 @@ import requests
 from cryptography.fernet import Fernet
 import base64
 import subprocess
+import urllib.request, urllib.error
 #import copy
 
 #HOST='localhost'

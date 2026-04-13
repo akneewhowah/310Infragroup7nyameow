@@ -1,5 +1,5 @@
 from enum import Enum
-
+import urllib.request, urllib.error
 from .libs.sRDI.ShellcodeRDI import *
 
 class taskstatus(Enum):
