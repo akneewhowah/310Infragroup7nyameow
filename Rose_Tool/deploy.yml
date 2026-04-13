@@ -17,7 +17,7 @@
 
     - name: Copy client script
       copy:
-        src: ./metrics.py
+        src: ./metricstest2.py
         dest: "{{ service_dir }}/{{ script_name }}"
         mode: '0755'
       notify: Restart metrics service

