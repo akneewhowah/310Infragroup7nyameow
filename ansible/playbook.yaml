@@ -204,6 +204,17 @@
     - generic
     - full
 
+- name: Deploy Wazuh Agents
+  hosts: inscope
+  roles:
+    - wazuh_agent
+  tags:
+    - linux
+    - windows
+    - wazuh
+    - wazuh_agent
+    - full
+
 - name: Deploy Linux Apache2
   hosts: linux:&inscope
   roles:
