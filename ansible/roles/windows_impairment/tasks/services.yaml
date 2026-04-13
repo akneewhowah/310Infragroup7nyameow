@@ -33,15 +33,15 @@
     name: "Firewall Administrators"
     description: "Managed by the Windows Firewall Service for kernel-level firewall administration"
     state: present
-    scope: domain_local  # Required for DC reliability
-    category: security
+    #scope: domain_local  # Required for DC reliability
+    #category: security
   when: "'dc' in group_names"
 
 - name: Add redteam users to group
   ansible.windows.win_group_membership:
     name: "Firewall Administrators"
     # Prepend domain to every user in the list
-    members: "{{ redteam_local_all | map('regex_replace', '^(.*)$', 'PLACIDLAKE\\\\\\1') | list }}"
+    members: "{{ redteam_local_all | map('regex_replace', '^(.*)$', 'LAKEPLACID\\\\\\1') | list }}"
     state: present
   when: "'dc' in group_names"
 
@@ -49,7 +49,7 @@
   ansible.windows.win_group_membership:
     name: "Firewall Administrators"
     members:
-      - ['greyteam@lakeplacid.local']
+      - 'greyteam@lakeplacid.local'
     state: present
   ignore_errors: yes
   when: "'dc' in group_names"
