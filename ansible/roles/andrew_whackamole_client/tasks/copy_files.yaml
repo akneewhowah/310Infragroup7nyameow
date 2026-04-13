@@ -37,20 +37,20 @@
 #    src: "config.json.j2"
 #    dest: "{{ [whackamole_agent_deploy_dir, 'config.json'] | path_join }}"
 
-#- name: Copy requirements to target
-#  win_copy:
-#    src: "files/requirements.txt"
-#    dest: "{{ whackamole_agent_deploy_dir }}\\requirements.txt"
-#  when: ansible_facts.os_family == "Windows" 
-#
-#- name: Copy requirements to target
-#  copy:
-#    src: "files/requirements.txt"
-#    dest: "{{ whackamole_agent_deploy_dir }}/requirements.txt"
-#    owner: root
-#    group: root
-#    mode: '0755'
-#  when: ansible_facts.os_family != "Windows"
+- name: Copy requirements to target
+  win_copy:
+    src: "files/requirements.txt"
+    dest: "{{ whackamole_agent_deploy_dir }}\\requirements.txt"
+  when: ansible_facts.os_family == "Windows" 
+
+- name: Copy requirements to target
+  copy:
+    src: "files/requirements.txt"
+    dest: "{{ whackamole_agent_deploy_dir }}/requirements.txt"
+    owner: root
+    group: root
+    mode: '0755'
+  when: ansible_facts.os_family != "Windows"
 
 - name: Copy agent executable to target
   copy:
@@ -68,23 +68,23 @@
 
 - name: Create venv and install requirements
   ansible.builtin.pip:
-    #requirements: "{{ [whackamole_agent_deploy_dir, 'requirements.txt'] | path_join }}"
+    requirements: "{{ [whackamole_agent_deploy_dir, 'requirements.txt'] | path_join }}"
     virtualenv: "{{ [whackamole_agent_deploy_dir, 'venv'] | path_join }}"
-    virtualenv_command: "{{ (ansible_os_family == 'Windows') | ternary('python -m venv', 'python3 -m venv') }}"
+    virtualenv_command: "python3 -m venv"
     state: present
   vars:
-    base_dir: "{{ (ansible_facts.os_family == 'Windows') | ternary('python -m venv --with-pip', 'python3 -m venv --with-pip') }}"
+    base_dir: "python3 -m venv --with-pip"
   when: ansible_facts.os_family != "Windows"
 
 - name: Create venv and install requirements (Windows)
   ansible.windows.win_shell: |
     $venvPath = Join-Path "{{ whackamole_agent_deploy_dir }}" "venv"
     $pythonExe = Join-Path $venvPath "Scripts\python.exe"
+    $reqPath = Join-Path "{{ whackamole_agent_deploy_dir }}" "requirements.txt"
+    & $pythonExe -m pip install -r $reqPath
     if (-not (Test-Path $venvPath)) {
         python -m venv $venvPath
     }
-  #$reqPath = Join-Path "{{ whackamole_agent_deploy_dir }}" "requirements.txt"
-  #& $pythonExe -m pip install -r $reqPath
   when: ansible_os_family == 'Windows'
 
 - name: Copy NSSM executable to target
