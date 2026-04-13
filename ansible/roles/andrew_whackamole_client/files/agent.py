@@ -278,19 +278,22 @@ def main():
             # Not something to be concerned about unless you're reading
             # this program as an example of server comms that you will
             # then port to your custom program in another language.
-            if desired_pause_until > time.time():
-                # Server wants the agent to pause until this time
-                # In this example implementation, we'll just sleep until then
-                # A 'proper' implementation for this can be to just skip
-                # the /get_task call and repeat the main loop until the
-                # pause state is expired as this allows the server to
-                # arbitrarily unpause the agent. However, this is not
-                # implemented here as it conflicts with this program's
-                # scope to be as simple and portable as possible,
-                # plus implementing sleep is an optional agent feature.
-                time.sleep(desired_pause_until - time.time())
-            # Otherwise, no pause is desired or it's in the past,
-            # so don't worry about it.
+            try:
+                if float(desired_pause_until) > time.time():
+                    # Server wants the agent to pause until this time
+                    # In this example implementation, we'll just sleep until then
+                    # A 'proper' implementation for this can be to just skip
+                    # the /get_task call and repeat the main loop until the
+                    # pause state is expired as this allows the server to
+                    # arbitrarily unpause the agent. However, this is not
+                    # implemented here as it conflicts with this program's
+                    # scope to be as simple and portable as possible,
+                    # plus implementing sleep is an optional agent feature.
+                    time.sleep(desired_pause_until - time.time())
+                # Otherwise, no pause is desired or it's in the past,
+                # so don't worry about it.
+            except Exception as E:
+                print_debug(E)
         
         # Let's see if any tasks are waiting for this agent
         status, response = send_message("agent/get_task")
