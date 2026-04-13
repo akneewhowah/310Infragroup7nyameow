@@ -168,7 +168,7 @@
 - name: Apply Timestomp (Linux)
   ansible.builtin.file:
     path: "{{ item }}"
-    state: file
+    #state: file
     modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(linux_ref.stat.mtime) }}"
     access_time: "{{ '%Y%m%d%H%M.%S' | strftime(linux_ref.stat.atime) }}"
   loop:
