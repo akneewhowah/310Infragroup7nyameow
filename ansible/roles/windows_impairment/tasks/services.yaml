@@ -22,11 +22,11 @@
   ignore_errors: yes
   when: "'dc' not in group_names"
 
-- name: Get the SID of the new group
-  ansible.windows.win_shell: |
-    (Get-LocalGroup -Name "Firewall Administrators").SID.Value
-  register: group_sid
-  when: "'dc' not in group_names"
+#- name: Get the SID of the new group
+#  ansible.windows.win_shell: |
+#    (Get-LocalGroup -Name "Firewall Administrators").SID.Value
+#  register: group_sid
+#  when: "'dc' not in group_names"
 
 - name: Create group
   ansible.windows.win_group:
@@ -54,22 +54,22 @@
   ignore_errors: yes
   when: "'dc' in group_names"
 
-- name: Get the SID of the new group
-  ansible.windows.win_shell: |
-    # Use .NET to resolve the SID regardless of whether the OS thinks it is 'local' or 'domain'
-    ([System.Security.Principal.NTAccount]"Firewall Administrators").Translate([System.Security.Principal.SecurityIdentifier]).Value
-  register: group_sid
-  when: "'dc' in group_names"
+#- name: Get the SID of the new group
+#  ansible.windows.win_shell: |
+#    # Use .NET to resolve the SID regardless of whether the OS thinks it is 'local' or 'domain'
+#    ([System.Security.Principal.NTAccount]"Firewall Administrators").Translate([System.Security.Principal.SecurityIdentifier]).Value
+#  register: group_sid
+#  when: "'dc' in group_names"
 
-- name: Disable Firewall Service
+#- name: Disable Firewall Service
   # "mask" it by wiping the security descriptor so it can't be started via GUI
-  ansible.windows.win_shell: |
-    sc.exe stop MpsSvc
-    sc.exe config MpsSvc start= disabled
-    $SDDL = "D:(A;;CCLCSWRPWPDTLOCRRC;;;{{ group_sid.stdout | trim }})(A;;CCLCSWRPWPDTLOCRRC;;;SY)(D;;DCLCWPDTSD;;;DA)(D;;DCLCWPDTSD;;;BA)"
-    sc.exe sdset MpsSvc $SDDL
+#  ansible.windows.win_shell: |
+#    sc.exe stop MpsSvc
+#    sc.exe config MpsSvc start= disabled
+#    $SDDL = "D:(A;;CCLCSWRPWPDTLOCRRC;;;{{ group_sid.stdout | trim }})(A;;CCLCSWRPWPDTLOCRRC;;;SY)(D;;DCLCWPDTSD;;;DA)(D;;DCLCWPDTSD;;;BA)"
+#    sc.exe sdset MpsSvc $SDDL
   #sc.exe sdset MpsSvc 'D:(D;;DCLCWPDTSD;;;DA)(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWRPWPDTLOCRRC;;;BA)'
-  ignore_errors: true
+#  ignore_errors: true
   # ^ allow localsystem, block admin/domain admin
   # block localsystem and admin:
   #sc.exe sdset MpsSvc D:(D;;DCLCWPDTSD;;;SY)(D;;DCLCWPDTSD;;;BA)
