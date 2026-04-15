@@ -101,6 +101,13 @@ all:
         blue2-bardown:
         blue2-clapper:
         blue2-backcheck:
+    
+    day3_prebake:
+      hosts:
+        blue2-cross-check:
+        blue2-clapper:
+        blue2-bardown:
+        blue2-hat-trick:
   
     proxy_central:
       #hosts:
