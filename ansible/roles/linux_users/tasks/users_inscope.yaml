@@ -1,7 +1,8 @@
 ---
-- name: Ensure all legit local users have sudo
-  ansible.builtin.user:
-    name: "{{ item }}"
-    groups: sudo
-    append: yes
-  loop: "{{ legit_local_all }}"
+- name: Add existing users to sudo group
+  ansible.builtin.command: "usermod -aG sudo {{ item }}"
+  loop: "{{ legit_all }}"
+  register: usermod_result
+  failed_when: false
+  ignore_errors: true
+  changed_when: "'does not exist' not in usermod_result.stderr"

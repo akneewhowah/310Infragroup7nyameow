@@ -1,0 +1,12 @@
+[settings]
+LISTEN_HOST = "0.0.0.0"
+LISTEN_PORT = 80
+AGGREGATION_SERVER_URL = "https://127.0.0.1:8000/"
+AGENT_TYPE = "cpp_c2"
+AUTH_TOKEN = "abc_123"
+KEY = b"Password1!"
+GOOD_IPS = ['127.0.0.1']
+LOGFILE = "log.txt"
+DATABASE_CREDS = "databaseuser:databasepwd"
+DATABASE_LOCATION = "database:5432"
+DATABASE_DB = "databasedb"

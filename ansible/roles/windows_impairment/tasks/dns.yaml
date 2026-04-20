@@ -1,0 +1,26 @@
+- name: Deploy Local DNS Overrides (Hosts File)
+  ansible.windows.win_hosts:
+    state: present
+    canonical_name: "{{ item.ip }}"
+    ip_address: "{{ item.ip }}"
+    aliases: ["{{ item.name }}"]
+  loop: "{{ dns_overrides | default([]) }}"
+  when: dns_overrides is defined and dns_overrides | length > 0
+
+- name: Poison Hosts File
+  ansible.windows.win_hosts:
+    state: present
+    canonical_name: 127.0.0.1
+    ip_address: 127.0.0.1
+    aliases: "{{ dns_localhost_overrides }}"
+  when:
+    - dns_localhost_overrides is defined
+    - dns_localhost_overrides | length > 0
+
+- name: Flush Windows DNS Cache
+  ansible.windows.win_shell: ipconfig /flushdns
+
+#- name: Ensure DNS Client service is running
+#  ansible.windows.win_service:
+#    name: Dnscache
+#    state: restarted

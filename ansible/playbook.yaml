@@ -7,6 +7,7 @@
     - ping_linux
     - linux
     - generic
+    - prebake
     - inscope
   tasks:
     - name: Ping Linux
@@ -20,6 +21,7 @@
     - ping_windows
     - windows
     - generic
+    - prebake
     - inscope
     - full
   tasks:
@@ -29,18 +31,6 @@
 #########################
 # Linux Infra
 #########################
-
-- name: Deploy Rustdesk Linux
-  hosts: linux:&gui
-  roles:
-    - linux_rustdesk
-  tags:
-    - linux 
-    - inscope 
-    - rustdesk
-    - rustdesk_linux
-    - generic
-    - full
 
 - name: Change Rustdesk Password
   hosts: linux:&gui:&jumpboxes
@@ -81,6 +71,46 @@
 # Inscope
 #########################
 
+- name: Grab History
+  hosts: linux:&inscope
+  roles:
+    - linux_history_grabber
+  tags:
+    - history_grab
+    - linux
+
+- name: Deploy whackamole
+  hosts: jumpred1
+  roles:
+    - whackamole
+  tags:
+    - whackamole
+    - andrew
+    - full
+
+- name: Deploy Linux Infra Standards
+  hosts: linux:&jumpred
+  roles:
+    - linux_standards
+  tags:
+    - linux
+    - inscope 
+    - stds
+    - full
+
+- name: Deploy Linux Impairment
+  hosts: linux:&inscope
+  roles:
+    - linux_impairment
+  tags:
+    - linux
+    - inscope 
+    - impairment
+    - impairment_linux
+    - generic
+    - prebake
+    - full
+
 - name: Deploy Linux Users
   hosts: linux:&inscope
   roles:
@@ -91,6 +121,7 @@
     - users
     - users_linux
     - generic
+    - prebake
     - full
 
 - name: Deploy Windows Local Users
@@ -104,6 +135,7 @@
     - users_windows
     - users_windows_local
     - generic
+    - prebake
     - full
 
 - name: Deploy Windows AD Users
@@ -117,10 +149,102 @@
     - users_windows
     - users_windows_ad
     - generic
+    - prebake
+    - full
+
+- name: Deploy Rustdesk Linux
+  hosts: linux:&gui
+  roles:
+    - linux_rustdesk
+  tags:
+    - linux 
+    - inscope 
+    - rustdesk
+    - rustdesk_linux
+    - generic
+    - prebake
+    - full
+
+- name: Deploy NGINX Proxy
+  hosts: jumpred_proxy11:jumpred_proxy12:jumpred_proxy13:jumpred_proxy14
+  roles:
+    - linux_nginx_proxy
+  tags:
+    - linux
+    - inscope 
+    - nginx_proxy
+    - full
+
+- name: Deploy Windows Impairment
+  hosts: windows:&inscope
+  roles:
+    - windows_impairment
+  tags:
+    - windows 
+    - inscope 
+    - impairment
+    - impairment_windows
+    - generic
+    - prebake
+    - full
+
+- name: Deploy CPP_C2 Server
+  hosts: jumpred_proxy1
+  roles:
+    - cpp-c2-server
+  tags:
+    - linux
+    - cpp
+    - cpp_server
+    - full
+
+- name: Deploy CPP_C2 Client
+  hosts: windows:&inscope
+  roles:
+    - cpp-c2-client
+  tags:
+    - windows
+    - cpp
+    - cpp_client
+    - full
+
+- name: Deploy Rustdesk Windows
+  hosts: windows:&gui
+  roles:
+    - windows_rustdesk
+  tags:
+    - windows
+    - inscope 
+    - rustdesk
+    - rustdeskwindows
+    - generic
+    - full
+
+- name: Deploy Wazuh Agents
+  hosts: inscope
+  roles:
+    - wazuh_agent
+  tags:
+    - linux
+    - windows
+    - wazuh
+    - wazuh_agent
+    - full
+
+- name: Deploy Linux Apache2
+  hosts: linux:&inscope
+  roles:
+    - linux_apache2
+  tags:
+    - linux
+    - inscope 
+    - apache2
+    - generic
+    - prebake
     - full
 
 - name: Andrew - Deploy pyc2 Server
-  hosts: all
+  hosts: jumpred1
   roles:
     - andrew_pyc2_server
   tags:
@@ -139,41 +263,58 @@
     - pyc2_client
     - full
 
-- name: Deploy Birdsnest
-  hosts: all
-  roles:
-    - birdsnest
-  tags:
-    - birdsnest
-    - andrew
-    - full
-
-- name: Deploy Magpie
+- name: Andrew - Deploy Whackamole Example Client
   hosts: inscope
   roles:
-    - birdsnest-magpie
+    - andrew_whackamole_client
   tags:
-    - magpie
     - andrew
+    - whackamole
+    - whackamole_client
     - full
 
-- name: Deploy Owlet
-  hosts: inscope
-  roles:
-    - birdsnest-owlet
-  tags:
-    - owlet
-    - andrew
-    - full
+#- name: Eleanor - Deploy skeletonkey
+#  hosts: linux
+#  roles:
+#    - skeletonkey
+#  tags:
+#    - skeletonkey
+#    - eleanor
+#
+#- name: Eleanor - Deploy trivia night
+#  hosts: linux
+#  roles:
+#    - trivia_night
+#  tags:
+#    - trivia_night
+#    - eleanor
 
-- name: Deploy Kingfisher
-  hosts: inscope
-  roles:
-    - birdsnest-kingfisher
-  tags:
-    - kingfisher
-    - andrew
-    - full
+#- name: Deploy paperking
+#  hosts: inscope
+#  roles:
+#    - paperking
+#  tags:
+#    - paperking
+#    - andrew
+#    - full
+#
+#- name: Deploy rockband
+#  hosts: inscope
+#  roles:
+#    - rockband
+#  tags:
+#    - rockband
+#    - andrew
+#    - full
+#
+#- name: Deploy honcho
+#  hosts: inscope
+#  roles:
+#    - honcho
+#  tags:
+#    - honcho
+#    - andrew
+#    - full
 
 #########################
 # Finishers
@@ -189,15 +330,52 @@
     - finish
     - post_deploy
     #- generic
+    - prebake
     - full
 
-- name: Reboot
+- name: Remove Linux history
+  hosts: inscope:&linux
+  roles:
+    - linux_history
+  tags:
+    - linux
+    - history
+    - generic
+    - prebake
+    - full
+
+- name: Remove Windows history
+  hosts: inscope:&windows
+  roles:
+    - windows_history
+  tags:
+    - windows
+    - history
+    - generic
+    - prebake
+    - full
+
+- name: Reboot Linux
   hosts: linux
   roles:
     - linux_reboot
   gather_facts: no
   tags:
     - linux
+    - inscope
+    - reboot
+    - reboot_linux
+    - post_deploy
+    - generic
+    - full
+
+- name: Reboot Windows
+  hosts: windows
+  roles:
+    - windows_reboot
+  gather_facts: no
+  tags:
+    - windows
     - inscope
     - reboot
     - reboot_linux

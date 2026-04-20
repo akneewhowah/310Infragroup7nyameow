@@ -1,0 +1,11 @@
+---
+whackamole_service_name: "whackamole"
+whackamole_service_description: "Agent process"
+whackamole_agent_deploy_dir: "{{ (ansible_os_family == 'Windows') | ternary('C:\\whackamole', '/whackamole') }}"
+whackamole_service_start: true
+whackamole_task_interval: 300
+whackamole_agent_executable: "agent.py"
+whackamole_server_url: "https://127.0.0.1:80/"
+whackamole_agent_name: "whackamole_service"
+whackamole_agent_type: "whackamole"
+whackamole_auth_token: "abc_123"

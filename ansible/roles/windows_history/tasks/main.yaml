@@ -1,0 +1,48 @@
+---
+- name: Clear standard Windows Event Logs
+  ansible.windows.win_eventlog:
+    name: "{{ item }}"
+    state: clear
+  loop:
+    - Security
+    - System
+    - Application
+    - Microsoft-Windows-PowerShell/Operational
+  ignore_errors: true
+  # system powershell log may not always exist at this path - TODO
+
+- name: Get all user profile paths
+  ansible.windows.win_shell: |
+    Get-ChildItem -Path "C:\Users" -Directory | Where-Object { $_.Name -notmatch "Public|Default|All Users" } | Select-Object -ExpandProperty FullName
+  register: user_profiles
+  changed_when: false
+
+- name: Clear Recent Items for all users
+  ansible.windows.win_shell: |
+    $recentPath = "{{ item }}\AppData\Roaming\Microsoft\Windows\Recent\*"
+    if (Test-Path $recentPath) {
+        Remove-Item -Path $recentPath -Force -Recurse
+    }
+  loop: "{{ user_profiles.stdout_lines }}"
+
+#- name: Clear PowerShell Console History for all users
+#  ansible.windows.win_file:
+#    path: "{{ item }}\\AppData\\Roaming\\Microsoft\\Windows\\PowerShell\\PSReadLine\\ConsoleHost_history.txt"
+#    state: absent
+#  loop: "{{ user_profiles.stdout_lines }}"
+
+- name: Clear PowerShell history for all users
+  ansible.windows.win_shell: |
+    $Profiles = Get-ChildItem -Path "C:\Users" -Directory | Where-Object { $_.Name -notmatch "Public|Default" }
+    foreach ($Profile in $Profiles) {
+        $HistoryPath = "$($Profile.FullName)\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+        if (Test-Path $HistoryPath) {
+            Remove-Item $HistoryPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    
+    Import-Module PSReadLine -ErrorAction SilentlyContinue
+    if ($null -ne ([Object].Assembly.GetType("Microsoft.PowerShell.PSConsoleReadLine"))) {
+        [Microsoft.PowerShell.PSConsoleReadLine]::ClearHistory()
+    }
+  ignore_errors: true # if a user is currently logged in

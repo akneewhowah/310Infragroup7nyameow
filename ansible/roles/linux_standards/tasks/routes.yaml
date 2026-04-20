@@ -1,0 +1,31 @@
+- name: Configure persistent static routes for ens3
+  ansible.builtin.copy:
+    dest: /etc/network/if-up.d/static-routes-ens3
+    mode: '0755'
+    content: |
+      #!/bin/sh
+      if [ "$IFACE" = "ens3" ]; then
+        ip route add 10.100.2.0/24 via 10.100.1.1 dev ens3 2>/dev/null || true
+        ip route add 10.100.3.0/24 via 10.100.1.1 dev ens3 2>/dev/null || true
+      fi
+
+- name: Configure persistent static routes for ens4
+  ansible.builtin.copy:
+    dest: /etc/network/if-up.d/static-routes-ens4
+    mode: '0755'
+    content: |
+      #!/bin/sh
+      if [ "$IFACE" = "ens4" ]; then
+        ip route add 10.2.1.0/24 via 192.168.10.254 dev ens4 2>/dev/null || true
+      fi
+
+- name: Apply routes immediately
+  ansible.builtin.command: "{{ item }}"
+  loop:
+    - ip route add 10.100.2.0/24 via 10.100.1.1 dev ens3
+    - ip route add 10.100.3.0/24 via 10.100.1.1 dev ens3
+    - ip route add 10.2.1.0/24 via 192.168.10.254 dev ens4
+  register: route_result
+  failed_when: 
+    - route_result.rc != 0 
+    - "'File exists' not in route_result.stderr"

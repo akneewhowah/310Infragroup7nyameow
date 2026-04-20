@@ -1,0 +1,142 @@
+- name: Record reference timestamp
+  ansible.builtin.stat:
+    path: "{{ apache_timestomp_reference }}"
+  register: time_stat
+
+#- name: Install build dependencies
+#  ansible.builtin.apt:
+#    name:
+#      - wget
+#      - build-essential
+#      - libapr1-dev
+#      - libaprutil1-dev
+#      - libpcre2-dev
+#      - libpcre3-dev
+#      - libssl-dev
+#      - pkg-config
+#      - zlib1g-dev
+#    state: present
+#  ignore_errors: true
+- name: Install build dependencies
+  ansible.builtin.shell: |
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y \
+      wget \
+      build-essential \
+      libapr1-dev \
+      libaprutil1-dev \
+      libpcre2-dev \
+      libpcre3-dev \
+      libssl-dev \
+      pkg-config \
+      zlib1g-dev
+  ignore_errors: true
+
+- name: Create build directory
+  ansible.builtin.file:
+    path: "{{ apache_install_path }}"
+    state: directory
+
+- name: Download and Extract Apache
+  ansible.builtin.unarchive:
+    src: "{{ apache_url }}"
+    dest: "{{ apache_install_path }}"
+    remote_src: yes
+    extra_opts: [--strip-components=0]
+
+- name: Configure, Build and Install
+  ansible.builtin.shell: |
+    cd {{ apache_install_path }}/httpd-2.4.49
+    ./configure --prefix={{ apache_root }} --enable-cgi --enable-load-all-modules
+    make -j$(nproc)
+    make install
+  args:
+    creates: "{{ apache_root }}/bin/httpd"
+
+- name: Configure Apache for CGI and Port 443
+  ansible.builtin.blockinfile:
+    path: "{{ apache_root }}/conf/httpd.conf"
+    block: |
+      Listen 443
+      LoadModule cgi_module modules/mod_cgi.so
+      <Directory />
+          AllowOverride none
+          Require all granted
+      </Directory>
+      ScriptAlias /cgi-bin/ "{{ apache_root }}/cgi-bin/"
+
+- name: Remove original Listen 80 line
+  ansible.builtin.lineinfile:
+    path: "{{ apache_root }}/conf/httpd.conf"
+    regexp: '^Listen 80'
+    state: absent
+
+- name: Disable mod_ssl to bypass undefined symbol error
+  ansible.builtin.replace:
+    path: "{{ apache_root }}/conf/httpd.conf"
+    regexp: '^(LoadModule ssl_module modules/mod_ssl.so)'
+    replace: '# \1'
+
+- name: Deploy Systemd Service Unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/apache2.service
+    content: |
+      [Unit]
+      Description=The Apache HTTP Server
+      After=network.target remote-fs.target nss-lookup.target
+
+      [Service]
+      Type=forking
+      ExecStart={{ apache_root }}/bin/apachectl start
+      ExecStop={{ apache_root }}/bin/apachectl stop
+      ExecReload={{ apache_root }}/bin/apachectl graceful
+      PrivateTmp=true
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Start and Enable Apache Service
+  ansible.builtin.systemd:
+    name: apache2
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Cleanup Build Files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ apache_install_path }}"
+    - "/usr/local/apache2/manual"
+
+- name: Pin apache2 to prevent apt install
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/apache2
+    content: |
+      Package: apache2*
+      Pin: release *
+      Pin-Priority: -1
+    mode: '0644'
+
+- name: Timestomp the Apt File
+  ansible.builtin.file:
+    path: "/etc/apt/preferences.d/apache2"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.atime) }}"
+    state: file
+
+- name: Timestomp the entire Apache installation directory (Recursive)
+  ansible.builtin.file:
+    path: "{{ apache_root }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.atime) }}"
+    state: directory
+    recurse: yes
+
+- name: Timestomp the Systemd Service File
+  ansible.builtin.file:
+    path: "/etc/systemd/system/apache2.service"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(time_stat.stat.atime) }}"
+    state: file

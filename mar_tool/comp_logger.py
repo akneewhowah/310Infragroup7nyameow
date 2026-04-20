@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 """
+Marissa Ventresca
+Team Alpha - Red
+mrv7315@rit.edu
+
+
 Competition Command & Auth Logger
 Monitors:
   - Shell history files (bash/zsh) for command activity

@@ -1,0 +1,9 @@
+---
+- name: Install Agent as a Windows Service
+  community.windows.win_nssm:
+    name: "{{ cppc2_persistence_name }}"
+    executable: "{{ [cppc2_deploy_path, 'agent.exe'] | path_join }}"
+    app_directory: "{{ cppc2_deploy_path }}"
+    username: "LocalSystem"
+    state: present
+  when: ansible_os_family == "Windows"

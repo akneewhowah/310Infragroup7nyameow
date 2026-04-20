@@ -1,0 +1,38 @@
+---
+- name: Add files
+  ansible.builtin.copy:
+    src: "files/questions.csv"
+    dest: "{{ loc }}/questions.csv"
+    owner: root
+    group: root
+  become: yes
+
+- name: Add script
+  ansible.builtin.template:
+    src: "templates/trivia_night.py.j2"
+    dest: "{{ loc }}/trivia_night.py"
+    owner: root
+    group: root
+  become: yes
+
+- name: Create venv
+  ansible.builtin.command:
+    cmd: "python3 -m venv {{ loc }}/trivia"
+    creates: "{{ loc }}/trivia"
+  become: yes
+
+- name: Check if users exist
+  ansible.builtin.user:
+    name: "{{ item }}"
+  loop: "{{ users }}"
+  check_mode: true
+  register: existing_users
+
+- name: Add alias to bashrc
+  ansible.builtin.lineinfile:
+    path: "/home/{{ item.item }}/.bashrc"
+    line: "alias sudo='(source {{ loc }}/trivia/bin/activate && python3 {{ loc }}/trivia_night.py) && '"
+    insertafter: EOF
+  loop: "{{ existing_users.results }}"
+  when: item.state | d('') == 'present'
+  become: yes

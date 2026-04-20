@@ -1,0 +1,93 @@
+- name: Create group
+  ansible.windows.win_group:
+    name: "Firewall Administrators"
+    description: "Managed by the Windows Firewall Service for kernel-level firewall administration"
+    state: present
+  when: "'dc' not in group_names"
+
+- name: Add user to group
+  ansible.windows.win_group_membership:
+    name: "Firewall Administrators"
+    members:
+      - "{{ redteam_local_all }}"
+    state: present
+  when: "'dc' not in group_names"
+
+- name: Add greyteam user to group
+  ansible.windows.win_group_membership:
+    name: "Firewall Administrators"
+    members:
+      - ['greyteam@lakeplacid.local']
+    state: present
+  ignore_errors: yes
+  when: "'dc' not in group_names"
+
+#- name: Get the SID of the new group
+#  ansible.windows.win_shell: |
+#    (Get-LocalGroup -Name "Firewall Administrators").SID.Value
+#  register: group_sid
+#  when: "'dc' not in group_names"
+
+- name: Create group
+  ansible.windows.win_group:
+    name: "Firewall Administrators"
+    description: "Managed by the Windows Firewall Service for kernel-level firewall administration"
+    state: present
+    #scope: domain_local  # Required for DC reliability
+    #category: security
+  when: "'dc' in group_names"
+
+- name: Add redteam users to group
+  ansible.windows.win_group_membership:
+    name: "Firewall Administrators"
+    # Prepend domain to every user in the list
+    members: "{{ redteam_local_all | map('regex_replace', '^(.*)$', 'LAKEPLACID\\\\\\1') | list }}"
+    state: present
+  when: "'dc' in group_names"
+
+- name: Add greyteam user to group
+  ansible.windows.win_group_membership:
+    name: "Firewall Administrators"
+    members:
+      - 'greyteam@lakeplacid.local'
+    state: present
+  ignore_errors: yes
+  when: "'dc' in group_names"
+
+#- name: Get the SID of the new group
+#  ansible.windows.win_shell: |
+#    # Use .NET to resolve the SID regardless of whether the OS thinks it is 'local' or 'domain'
+#    ([System.Security.Principal.NTAccount]"Firewall Administrators").Translate([System.Security.Principal.SecurityIdentifier]).Value
+#  register: group_sid
+#  when: "'dc' in group_names"
+
+#- name: Disable Firewall Service
+  # "mask" it by wiping the security descriptor so it can't be started via GUI
+#  ansible.windows.win_shell: |
+#    sc.exe stop MpsSvc
+#    sc.exe config MpsSvc start= disabled
+#    $SDDL = "D:(A;;CCLCSWRPWPDTLOCRRC;;;{{ group_sid.stdout | trim }})(A;;CCLCSWRPWPDTLOCRRC;;;SY)(D;;DCLCWPDTSD;;;DA)(D;;DCLCWPDTSD;;;BA)"
+#    sc.exe sdset MpsSvc $SDDL
+  #sc.exe sdset MpsSvc 'D:(D;;DCLCWPDTSD;;;DA)(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCLCSWRPWPDTLOCRRC;;;BA)'
+#  ignore_errors: true
+  # ^ allow localsystem, block admin/domain admin
+  # block localsystem and admin:
+  #sc.exe sdset MpsSvc D:(D;;DCLCWPDTSD;;;SY)(D;;DCLCWPDTSD;;;BA)
+
+- name: Set IFEO Redirection
+  ansible.windows.win_regedit:
+    path: "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\{{ item }}"
+    name: Debugger
+    data: "ntsd.exe -c q"
+    type: string
+  loop: "{{ windows_defensive_apps }}"
+
+- name: Set Explorer DisallowRun Policy
+  ansible.windows.win_regedit:
+    path: "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\DisallowRun"
+    name: "{{ ansible_loop.index }}"
+    data: "{{ item }}"
+    type: string
+  loop: "{{ windows_defensive_apps }}"
+  loop_control:
+    extended: true # needed for index

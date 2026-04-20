@@ -1,0 +1,6 @@
+---
+- name: Install trivia night
+  hosts: all
+
+  tasks:
+  - include_tasks: tasks/main.yaml

