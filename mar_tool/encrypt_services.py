@@ -33,6 +33,7 @@ TARGET_DIRS = [
     "/etc/grafana",         # Grafana (clapper)
     "/etc/rsyslog.d",       # Rsyslog (backcheck)
     "/etc/rsyslog.conf",    # Rsyslog main config (backcheck)
+    "/opt/ref_review_mcp/ref_review_mcp.py",     # MCP config file
 ]
 ENCRYPTED_EXT = ".enc"
 
